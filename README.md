@@ -1,4 +1,15 @@
-# Airflow + dbt + Snowflake (Postgres-backed) Demo 🦊🐱
+# Airflow + dbt + Snowflake (Postgres‑backed) Demo 🦊🐱
+
+Layered pipeline with explicit quality gates and reusable TaskGroups.
+
+Run Order (Layered Pipeline)
+- dbt_deps → [bronze.run] → [bronze.test] → [silver.run] → [silver.test] → [gold.run] → [gold.test] → publish Dataset `dbt://gold/fct_orders`
+
+TaskGroup Pattern
+- `dbt_run_group(selector, env, project_dir, pool)`: wraps `dbt run` with backfill vars `{start_date,end_date}`; XCom disabled; pool defaults to `dbt`.
+- `dbt_test_group(selector, env, project_dir, pool)`: wraps `dbt test` with the same vars; acts as the quality gate for the previous run group.
+- Benefits: consistent structure, minimal boilerplate, easy layering by chaining groups between domains.
+
 
 A reproducible, stable local data orchestration template: Apache Airflow for scheduling, dbt for modeling, Postgres as Airflow metadata DB, and Snowflake as the warehouse. Includes one-command startup, health checks, regression validation, and cleanup helpers.
 

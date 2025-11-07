@@ -29,7 +29,7 @@ jobs:
 
       - name: Lint (flake8)
         run: |
-          flake8 airflow/dags || true
+          flake8 airflow/dags
 
       - name: Install dbt for compile
         run: |
@@ -49,4 +49,3 @@ jobs:
         run: |
           dbt parse
           dbt compile
-

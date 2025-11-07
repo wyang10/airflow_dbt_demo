@@ -73,8 +73,13 @@ echo "🔎 Env check:"
   | sed 's/\(SNOWFLAKE_PASSWORD=\).*/\1********/'
 
 # 5) 本地 dbt 自检（可选）
-echo "🧪 Running: dbt debug (project=data_pipeline)"
-dbt debug --project-dir "$PROJECT_ROOT/data_pipeline" --profiles-dir "$PROJECT_ROOT/data_pipeline" || true
+if [[ -z "${SNOWFLAKE_ACCOUNT:-}" ]]; then
+  echo "🧪 No Snowflake credentials detected -> running: dbt parse (project=data_pipeline)"
+  dbt parse --project-dir "$PROJECT_ROOT/data_pipeline" --profiles-dir "$PROJECT_ROOT/data_pipeline" || true
+else
+  echo "🧪 Running: dbt debug (project=data_pipeline)"
+  dbt debug --project-dir "$PROJECT_ROOT/data_pipeline" --profiles-dir "$PROJECT_ROOT/data_pipeline" || true
+fi
 
 cat <<'TIPS'
 
