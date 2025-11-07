@@ -1,0 +1,8 @@
+# Copy this block under columns: <column_name>: tests:
+# Standard relationships test (new-style with arguments)
+tests:
+  - relationships:
+      arguments:
+        to: "{{ source('your_source_name', 'your_table_name') }}"
+        field: your_pk_column
+
