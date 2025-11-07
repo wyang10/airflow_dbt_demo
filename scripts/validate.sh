@@ -52,6 +52,12 @@ wait_dag() {
 }
 
 main() {
+  # Friendly guard for missing env file used by compose
+  if [[ ! -f "$PROJECT_ROOT/airflow/.env" ]]; then
+    echo "❌ Missing $PROJECT_ROOT/airflow/.env (compose env_file)" >&2
+    echo "   Fix: cp airflow/.env.example airflow/.env; then fill SNOWFLAKE_* (or leave blanks if only running GE)." >&2
+    exit 2
+  fi
   local dags
   if [[ $# -eq 0 ]]; then
     dags=(dbt_daily dbt_daily_pipeline dbt_layered_pipeline)

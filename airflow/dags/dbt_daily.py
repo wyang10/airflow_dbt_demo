@@ -9,6 +9,7 @@ Architecture:
 from airflow import DAG
 from airflow.datasets import Dataset
 from airflow.operators.bash import BashOperator
+from lib.dbt_groups import dbt_run_group, dbt_test_group
 from datetime import datetime, timedelta
 import os
 
@@ -72,30 +73,21 @@ dbt deps
     )
 
     # Smoke line: run everything in project once per day
-    dbt_run = BashOperator(
-        task_id="dbt_run",
-        bash_command=DBT_ENV_CHECK + r"""
-dbt debug --profiles-dir /opt/airflow/dbt --config-dir
-dbt run   --profiles-dir /opt/airflow/dbt \
-  --vars "{start_date: '{{ data_interval_start | ds }}', end_date: '{{ data_interval_end | ds }}'}"
-""",
+    # Use TaskGroups to keep structure simple but consistent
+    dbt_run = dbt_run_group(
+        selector="path:models",
         env=env_vars,
+        project_dir="/opt/airflow/dbt",
         pool="dbt",
-        do_xcom_push=False,
     )
 
     # Quality gate: must pass tests before completing the DAG
-    dbt_test = BashOperator(
-        task_id="dbt_test",
-        bash_command=DBT_ENV_CHECK + r"""
-dbt test  --profiles-dir /opt/airflow/dbt \
-  --vars "{start_date: '{{ data_interval_start | ds }}', end_date: '{{ data_interval_end | ds }}'}"
-""",
+    dbt_test = dbt_test_group(
+        selector="path:models",
         env=env_vars,
+        project_dir="/opt/airflow/dbt",
+        outlets_datasets=[Dataset("dbt://gold/fct_orders")],
         pool="dbt",
-        do_xcom_push=False,
-        # Publish a dataset to drive downstream consumers (optional)
-        outlets=[Dataset("dbt://gold/fct_orders")],
     )
 
     dbt_deps >> dbt_run >> dbt_test

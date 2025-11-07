@@ -18,6 +18,7 @@ coverage.xml
 airflow/.env
 .env
 airflow/.env.bak.*
+.venv/
 .env
 **/.venv/
 
