@@ -1,0 +1,33 @@
+# OS / Editors
+.DS_Store
+.idea/
+.vscode/
+.history/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+.python-version
+
+# Env
+*.env
+airflow/.env
+.env
+airflow/.env.bak.*
+
+# Logs
+logs/
+
+# dbt local venv (inside project)
+data_pipeline/.venv/
+
+# dbt artifacts
+data_pipeline/target/
+data_pipeline/dbt_packages/
+
+airflow/dags/__pycache__/
+scripts/**/.venv/
