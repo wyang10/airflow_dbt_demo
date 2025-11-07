@@ -4,4 +4,4 @@ dbt-snowflake==1.10.2
 
 # Optional Great Expectations support (used by quality_checks DAG)
 great-expectations==0.18.14
-great-expectations-provider==0.2.8
+airflow-provider-great-expectations==0.2.8
