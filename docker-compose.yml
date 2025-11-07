@@ -71,7 +71,7 @@ services:
   webserver:
     <<: *airflow-common
     ports:
-      - "8080:8080"
+      - "${AIRFLOW_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy

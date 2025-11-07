@@ -5,6 +5,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 AIRFLOW_PORT="${AIRFLOW_PORT:-8080}"
+export AIRFLOW_PORT
 AIRFLOW_URL="${AIRFLOW_URL:-http://localhost:${AIRFLOW_PORT}}"
 PROJECT_NAME="${PROJECT_NAME:-${COMPOSE_PROJECT_NAME:-}}"
 OPEN_CMD="open"
