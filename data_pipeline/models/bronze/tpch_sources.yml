@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: tpch
+    database: snowflake_sample_data
+    schema: tpch_sf1
+    loaded_at_field: null    # 或者干脆不写 freshness 块
+
+    tables:
+      - name: orders
+        loaded_at_field: "o_orderdate::timestamp"
+        columns:
+          - name: o_orderkey
+            tests:
+              - unique
+              - not_null
+
+      - name: lineitem
+        # 选一个代表“加载时间”的日期列，这里用发货日
+        loaded_at_field: "l_shipdate::timestamp"
+        columns:
+          - name: l_orderkey
+            tests:
+              - relationships:
+                  arguments:
+                    to: "{{ source('tpch', 'orders') }}"
+                    field: o_orderkey
+                         

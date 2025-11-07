@@ -18,16 +18,21 @@ coverage.xml
 airflow/.env
 .env
 airflow/.env.bak.*
+.env
+**/.venv/
 
 # Logs
 logs/
 
 # dbt local venv (inside project)
 data_pipeline/.venv/
-
-# dbt artifacts
 data_pipeline/target/
 data_pipeline/dbt_packages/
-
-airflow/dags/__pycache__/
 scripts/**/.venv/
+
+# dbt artifacts (if created at repo root accidentally)
+target/
+dbt_packages/
+
+# Private doc (Chinese version for internal use)
+README_Fox.md

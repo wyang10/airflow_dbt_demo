@@ -1,0 +1,7 @@
+dbt-core==1.10.13
+dbt-snowflake==1.10.2
+# Only dbt is needed for DAGs; dbt invoked via BashOperator
+
+# Optional Great Expectations support (used by quality_checks DAG)
+great-expectations==0.18.14
+great-expectations-provider==0.2.8

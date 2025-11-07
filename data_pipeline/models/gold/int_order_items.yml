@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: int_order_items
+    description: Enriched order items joined with orders
+    columns:
+      - name: order_key
+        description: FK to stg_tpch_orders.order_key
+        tests:
+          - not_null:
+              severity: error
+          - relationships:
+              to: ref('stg_tpch_orders')
+              field: order_key
+              severity: error
+      - name: order_date
+        description: Order date propagated from orders
+        tests:
+          - not_null
+      - name: discounted_amount
+        description: Discounted extended price should be present
+        tests:
+          - not_null
+
+  - name: int_order_items_summary
+    description: Daily metrics aggregated from order items
+    columns:
+      - name: order_date
+        tests:
+          - not_null
+      - name: items_cnt
+        tests:
+          - not_null
+      - name: gross_item_sales_amount
+        tests:
+          - not_null
+      - name: item_discount_amount
+        tests:
+          - not_null
+

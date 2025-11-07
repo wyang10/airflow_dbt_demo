@@ -1,0 +1,23 @@
+# Source YAML template (copy into models/<layer>/...)
+version: 2
+
+sources:
+  - name: your_source
+    database: YOUR_DB
+    schema: YOUR_SCHEMA
+
+    tables:
+      - name: your_table
+        loaded_at_field: "your_timestamp_column::timestamp"
+        columns:
+          - name: your_pk_column
+            tests:
+              - unique
+              - not_null
+          - name: your_fk_column
+            tests:
+              - relationships:
+                  arguments:
+                    to: "{{ source('your_source', 'parent_table') }}"
+                    field: parent_pk_column
+

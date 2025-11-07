@@ -1,0 +1,15 @@
+name: daily_metrics_chk
+config_version: 1.0
+class_name: Checkpoint
+run_name_template: "%Y%m%d-%H%M%S-daily-metrics"
+validations:
+  - expectation_suite_name: daily_metrics
+    batch_request:
+      datasource_name: pandas_runtime
+      data_connector_name: runtime_data_connector
+      data_asset_name: in_memory_dummy
+      runtime_parameters:
+        batch_data:
+          - {"x": 1}
+          - {"x": 2}
+

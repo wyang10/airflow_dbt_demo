@@ -1,0 +1,14 @@
+data_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"   # ← 统一
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'dbt_role') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'DBT_DB') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'DBT_WH') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'DBT_SCHEMA') }}"
+      threads: 8
+      query_tag: "{{ env_var('DBT_QUERY_TAG', '') }}"

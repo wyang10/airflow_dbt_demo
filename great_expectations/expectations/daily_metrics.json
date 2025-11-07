@@ -1,0 +1,15 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "daily_metrics",
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {"min_value": 0}
+    }
+  ],
+  "meta": {
+    "created_by": "codex-cli",
+    "notes": "Minimal suite to validate runtime batch has non-negative row count"
+  }
+}
+

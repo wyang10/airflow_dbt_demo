@@ -1,0 +1,89 @@
+version: "3.8"
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3-python3.11
+  restart: unless-stopped
+  env_file:
+    - ./airflow/.env              # 你的 Snowflake 变量
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__WEBSERVER__RBAC: "True"
+    DBT_PROFILES_DIR: /opt/airflow/dbt
+    # 允许容器启动时装依赖（交由镜像入口脚本处理）
+    _PIP_ADDITIONAL_REQUIREMENTS: "-r /opt/airflow/requirements.txt"
+  user: "${AIRFLOW_UID:-50000}:0"
+  volumes:
+    - airflow_home:/opt/airflow
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/requirements.txt:/opt/airflow/requirements.txt
+    - ./data_pipeline:/opt/airflow/dbt
+    - ./great_expectations:/opt/airflow/great_expectations
+  healthcheck:
+    test: ["CMD", "bash", "-c", "airflow db check"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Web UI
+    environment:
+      MP_SMTP_BIND_ADDR: "0.0.0.0:1025"
+      MP_UI_BIND_ADDR: "0.0.0.0:8025"
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -lc "airflow db init \
+      && (airflow users create --username airflow --password airflow --firstname Admin --lastname User --role Admin --email admin@example.com || true) \
+      && (airflow pools set dbt 1 'Serialize dbt CLI across DAGs' || true)"
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  scheduler:
+    <<: *airflow-common
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    command: >
+      bash -lc "airflow scheduler"
+
+  webserver:
+    <<: *airflow-common
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      scheduler:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    command: >
+      bash -lc "airflow webserver"
+
+volumes:
+  airflow_home:
+  postgres_data:
