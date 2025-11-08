@@ -11,6 +11,14 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
     AIRFLOW__CORE__LOAD_EXAMPLES: "False"
     AIRFLOW__WEBSERVER__RBAC: "True"
+    AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY:-TN6KCTBau36eJ3SLKN08_K_u5_sNQs-kDKUEdSuSq4o=}"
+    AIRFLOW__WEBSERVER__SECRET_KEY: "${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-change-me}"  # override in airflow/.env for login/CSRF
+    # SMTP via Mailpit (UI at http://localhost:8025)
+    AIRFLOW__SMTP__SMTP_HOST: "${AIRFLOW__SMTP__SMTP_HOST:-mailpit}"
+    AIRFLOW__SMTP__SMTP_PORT: "${AIRFLOW__SMTP__SMTP_PORT:-1025}"
+    AIRFLOW__SMTP__SMTP_STARTTLS: "${AIRFLOW__SMTP__SMTP_STARTTLS:-False}"
+    AIRFLOW__SMTP__SMTP_SSL: "${AIRFLOW__SMTP__SMTP_SSL:-False}"
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: "${AIRFLOW__SMTP__SMTP_MAIL_FROM:-airflow@example.com}"
     DBT_PROFILES_DIR: /opt/airflow/dbt
   user: "${AIRFLOW_UID:-50000}:0"
   volumes:
@@ -50,7 +58,7 @@ services:
   airflow-init:
     <<: *airflow-common
     command: >
-      bash -lc "airflow db init \
+      bash -lc "airflow db migrate \
       && (airflow users create --username airflow --password airflow --firstname Admin --lastname User --role Admin --email admin@example.com || true) \
       && (airflow pools set dbt 1 'Serialize dbt CLI across DAGs' || true)"
     restart: "no"

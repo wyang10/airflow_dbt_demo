@@ -4,6 +4,8 @@ import os
 from airflow import DAG
 from airflow.datasets import Dataset
 from airflow.operators.bash import BashOperator
+from airflow.operators.python import ShortCircuitOperator
+from lib.creds import has_snowflake_creds
 
 
 def _g(k: str, default: str = "") -> str:
@@ -34,15 +36,22 @@ with DAG(
     },
     tags=["dbt", "datasets", "downstream"],
 ) as dag:
+    check_creds = ShortCircuitOperator(
+        task_id="check_snowflake_creds",
+        python_callable=has_snowflake_creds,
+    )
+
     run_downstream = BashOperator(
         task_id="run_downstream",
         bash_command=(
             "set -euo pipefail\n"
             "cd /opt/airflow/dbt\n"
+            # Skip gracefully if no downstream models are tagged
+            "if ! dbt ls --select 'tag:downstream' | grep -q .; then echo 'No models with tag:downstream; skipping.'; exit 0; fi\n"
             "dbt run --select 'tag:downstream' "
             "--vars \"{start_date: '{{ data_interval_start | ds }}', end_date: '{{ data_interval_end | ds }}'}\"\n"
         ),
         env=ENV_VARS,
         do_xcom_push=False,
     )
-
+    check_creds >> run_downstream

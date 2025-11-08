@@ -14,6 +14,9 @@ import os
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.datasets import Dataset
+from airflow.operators.python import ShortCircuitOperator
+from lib.dbt_groups import dbt_run_group, dbt_test_group
+from lib.creds import has_snowflake_creds
 from lib.dbt_groups import dbt_run_group, dbt_test_group
 
 
@@ -112,6 +115,12 @@ with DAG(
     description="Bronze → Silver → Gold 分层 dbt 编排（Snowflake）",
 ) as dag:
 
+    # 在本地未配置 Snowflake 凭据时跳过 dbt 任务，避免长时间失败
+    check_creds = ShortCircuitOperator(
+        task_id="check_snowflake_creds",
+        python_callable=has_snowflake_creds,
+    )
+
     # 0) dbt 依赖（每次 run 之前拉取，确保包一致）
     dbt_deps = BashOperator(
         task_id="dbt_deps",
@@ -140,7 +149,7 @@ with DAG(
         gold_test.outlets = [Dataset("dbt://gold/fct_orders")]
 
     # 串联：deps -> (seed) -> bronze -> silver -> gold
-    chain_head = dbt_deps
+    chain_head = check_creds >> dbt_deps
     # chain_head = dbt_deps >> dbt_seed  # 若启用 seed，改用此行
 
     chain_head >> bronze_main >> silver_main >> gold_main

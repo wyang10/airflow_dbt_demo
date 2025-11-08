@@ -2,6 +2,8 @@ from airflow import DAG
 from airflow.datasets import Dataset
 from lib.dbt_groups import dbt_run_group, dbt_test_group
 from airflow.operators.bash import BashOperator
+from airflow.operators.python import ShortCircuitOperator
+from lib.creds import has_snowflake_creds
 from datetime import datetime, timedelta
 import os
 
@@ -52,6 +54,11 @@ with DAG(
     tags=["dbt", "snowflake"],
 ) as dag:
 
+    check_creds = ShortCircuitOperator(
+        task_id="check_snowflake_creds",
+        python_callable=has_snowflake_creds,
+    )
+
     dbt_deps = BashOperator(
         task_id="dbt_deps",
         bash_command=DBT_ENV_CHECK + r"""
@@ -77,4 +84,4 @@ dbt deps
         pool="dbt",
     )
 
-    dbt_deps >> run_grp >> test_grp
+    check_creds >> dbt_deps >> run_grp >> test_grp

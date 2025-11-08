@@ -9,6 +9,8 @@ Architecture:
 from airflow import DAG
 from airflow.datasets import Dataset
 from airflow.operators.bash import BashOperator
+from airflow.operators.python import ShortCircuitOperator
+from lib.creds import has_snowflake_creds
 from lib.dbt_groups import dbt_run_group, dbt_test_group
 from datetime import datetime, timedelta
 import os
@@ -63,6 +65,12 @@ with DAG(
     tags=["dbt", "snowflake", "smoke"],
 ) as dag:
 
+    # Skip dbt tasks when Snowflake credentials are not provided locally
+    check_creds = ShortCircuitOperator(
+        task_id="check_snowflake_creds",
+        python_callable=has_snowflake_creds,
+    )
+
     dbt_deps = BashOperator(
         task_id="dbt_deps",
         bash_command=DBT_ENV_CHECK + r"""
@@ -90,4 +98,4 @@ dbt deps
         pool="dbt",
     )
 
-    dbt_deps >> dbt_run >> dbt_test
+    check_creds >> dbt_deps >> dbt_run >> dbt_test

@@ -28,7 +28,7 @@ def _build_dag_with_ge() -> DAG:
     with DAG(
         dag_id="quality_checks",
         start_date=datetime(2025, 11, 1),
-        schedule_interval=None,
+        schedule=None,
         catchup=False,
         description="Run Great Expectations suites against critical tables",
         tags=["quality", "ge"],
@@ -47,4 +47,3 @@ def _build_dag_with_ge() -> DAG:
 
 
 globals()["quality_checks"] = _build_dag_with_ge()
-

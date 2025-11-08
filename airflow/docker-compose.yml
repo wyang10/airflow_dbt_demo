@@ -11,6 +11,9 @@ services:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
       AIRFLOW__WEBSERVER__SECRET_KEY: simple-secret
+      AIRFLOW__CORE__FERNET_KEY: TN6KCTBau36eJ3SLKN08_K_u5_sNQs-kDKUEdSuSq4o=
+      AIRFLOW__WEBSERVER__SECRET_KEY: 8b748b37f196ab9e7801c5f907ba129e32ff071b53064c960082346da52ebf1f6391b166d255d77ab54583ac15618e8a2f445b05637b3add2140242aca2a8559
+
       DBT_PROFILES_DIR: /opt/airflow/dbt
     volumes:
       - airflow_home:/opt/airflow
