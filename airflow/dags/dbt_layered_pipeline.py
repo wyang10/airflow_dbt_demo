@@ -17,7 +17,6 @@ from airflow.datasets import Dataset
 from airflow.operators.python import ShortCircuitOperator
 from lib.dbt_groups import dbt_run_group, dbt_test_group
 from lib.creds import has_snowflake_creds
-from lib.dbt_groups import dbt_run_group, dbt_test_group
 
 
 # ---------- 可按需修改 ----------

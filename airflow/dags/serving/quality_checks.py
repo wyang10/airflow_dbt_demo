@@ -1,13 +1,13 @@
-"""
-Optional Great Expectations checks.
+"""Run Great Expectations suites against critical tables.
 
-If the GE Airflow provider is installed, run an example validation.
-Otherwise, this DAG parses but is paused and contains no tasks.
+This DAG requires the Great Expectations provider. If it's not installed,
+the DAG is created paused with no tasks so the module still parses.
 """
+
 from datetime import datetime
-
 from airflow import DAG
 from airflow.utils.context import Context
+from airflow.operators.empty import EmptyOperator
 
 
 def _build_dag_with_ge() -> DAG:
@@ -51,14 +51,14 @@ def _build_dag_with_ge() -> DAG:
     with DAG(
         dag_id="quality_checks",
         start_date=datetime(2025, 11, 1),
-        schedule=None,
+        schedule=None,  # Airflow 2.4+ 使用 schedule；老版本请改回 schedule_interval=None
         catchup=False,
         description="Run Great Expectations suites against critical tables",
         tags=["quality", "ge"],
     ) as dag:
-        # This assumes a GE context is present under /opt/airflow/great_expectations
-        # and an expectation suite named "daily_metrics" with a checkpoint "daily_metrics_chk".
-        # You can adapt names to your setup.
+        # 占位上游任务
+        start = EmptyOperator(task_id="start")
+
         run_ge = GreatExpectationsOperator(
             task_id="run_daily_metrics_suite",
             data_context_root_dir="/opt/airflow/great_expectations",
@@ -67,6 +67,11 @@ def _build_dag_with_ge() -> DAG:
             return_json_dict=True,
             on_success_callback=_set_docs_http_url,
         )
+
+        # 占位下游任务
+        publish = EmptyOperator(task_id="publish")
+
+        start >> run_ge >> publish
 
     return dag
 
