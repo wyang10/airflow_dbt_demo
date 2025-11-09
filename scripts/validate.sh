@@ -14,7 +14,7 @@ wait_dag() {
 
   # Wait until DAG is loaded (up to 60s)
   for i in {1..60}; do
-    if compose exec -T webserver airflow dags list -o json | jq -r '.[].dag_id' | grep -qx "$dag_id"; then
+    if compose exec -T webserver bash -lc "airflow dags list -o json | jq -r '.[].dag_id'" | grep -qx "$dag_id"; then
       break
     fi
     sleep 2
@@ -28,7 +28,7 @@ wait_dag() {
   # Wait until a run appears
   local run_id=""
   for i in {1..30}; do
-    run_id=$(compose exec -T webserver airflow dags list-runs -d "$dag_id" -o json | jq -r '.[0].run_id' 2>/dev/null || true)
+    run_id=$(compose exec -T webserver bash -lc "airflow dags list-runs -d '$dag_id' -o json | jq -r '.[0].run_id'" 2>/dev/null || true)
     [[ -n "$run_id" && "$run_id" != null ]] && break || true
     sleep 2
   done
@@ -38,7 +38,7 @@ wait_dag() {
   local start_ts=$(date +%s)
   while true; do
     local state
-    state=$(compose exec -T webserver airflow dags list-runs -d "$dag_id" -o json | jq -r '.[0].state' 2>/dev/null || echo "")
+    state=$(compose exec -T webserver bash -lc "airflow dags list-runs -d '$dag_id' -o json | jq -r '.[0].state'" 2>/dev/null || echo "")
     printf "."; sleep 3
     if [[ "$state" == "success" ]]; then
       echo "\n✅ $dag_id (${run_id:-latest}) -> SUCCESS"; return 0

@@ -38,6 +38,7 @@ with DAG(
             <h3>SMTP smoke test</h3>
             <p>Sent by Airflow DAG <b>{{ dag.dag_id }}</b> at <code>{{ ts }}</code>.</p>
         """,
+        conn_id="smtp_mailpit",
     )
 
     check_email >> send_test

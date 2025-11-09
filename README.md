@@ -107,10 +107,34 @@ Compose highlights:
 - Smoke test DAG: `smtp_smoke`
   - Trigger in UI or run: `docker compose exec -T webserver airflow dags trigger smtp_smoke`
   - Open Mailpit UI to see the test email in the inbox.
+- Default connection used by DAG: `smtp_mailpit` (auto-provisioned via env `AIRFLOW_CONN_SMTP_MAILPIT`).
 - Switching to a real SMTP provider (e.g., Gmail/Mailtrap):
-  - Edit `airflow/.env` SMTP variables (see `airflow/.env.example`) and restart services:
-    - `docker compose restart webserver scheduler` (or `up -d --force-recreate`)
-  - For Gmail, enable 2FA and use an App Password; for development, Mailtrap is recommended.
+  - Create a new Airflow Connection `smtp_gmail` via UI (Admin → Connections → +):
+    - Conn Id: `smtp_gmail`
+    - Conn Type: `smtp`
+    - Host: `smtp.gmail.com`
+    - Port: `587`
+    - Login: `<your Gmail address>`
+    - Password: `<Gmail App Password>`
+    - Extra: `{ "starttls": true }`
+  - 或使用 CLI：
+    - `docker compose exec -T webserver airflow connections add smtp_gmail \`
+      `--conn-type smtp --conn-host smtp.gmail.com --conn-port 587 \`
+      `--conn-login YOUR@GMAIL.COM --conn-password 'APP_PASSWORD' \`
+      `--conn-extra '{"starttls": true}'`
+  - 将 `smtp_smoke` 的 `conn_id` 改为 `smtp_gmail`（当前默认已用 `smtp_mailpit`）。
+
+Tip: `airflow/.env` 里包含一个空密码的模板变量（注释行）：
+`AIRFLOW_CONN_SMTP_GMAIL=smtp://your.name@gmail.com:@smtp.gmail.com:587?starttls=true`
+需要真实发信时，建议直接用 Airflow UI/CLI 建立连接并填入 App Password。
+
+## Great Expectations Data Docs
+
+- 已集成本地 Data Docs，可通过 Nginx 暴露为静态站点：
+  - 打开 `http://localhost:8081`
+- 质量检查 DAG：`quality_checks`
+  - 运行后自动生成/更新 Data Docs（`UpdateDataDocsAction`）
+  - 在 Airflow 任务页面的 Extra Links 中，点击 “Great Expectations Data Docs” 即可跳转（已自动重写为 `http://localhost:8081/...`）
 
 ## Pipeline Differences & Run Order
 

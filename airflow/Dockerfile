@@ -2,9 +2,9 @@
 FROM apache/airflow:2.9.3-python3.11
 
 USER root
-# 安装 git，并清理缓存
-RUN apt-get update && apt-get install -y --no-install-recommends git \
-    && git --version \
+# 安装 git、jq，并清理缓存（jq 供 scripts/validate.sh 解析 Airflow CLI JSON 输出）
+RUN apt-get update && apt-get install -y --no-install-recommends git jq \
+    && git --version && jq --version \
     && rm -rf /var/lib/apt/lists/*
 
 USER airflow

@@ -33,6 +33,14 @@ x-airflow-common: &airflow-common
     retries: 5
 
 services:
+  gx-docs:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./great_expectations/uncommitted/data_docs/local_site:/usr/share/nginx/html:ro
+
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped

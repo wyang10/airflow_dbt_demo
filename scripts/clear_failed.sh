@@ -20,7 +20,7 @@ fi
 
 for d in "${DAGS[@]}"; do
   echo "🔎 Checking failed runs for $d ..."
-  runs=$(eval "$COMPOSE exec -T webserver airflow dags list-runs -d \"$d\" -o json" | jq -r '.[] | select(.state=="failed") | .run_id' 2>/dev/null) || true
+runs=$(eval "$COMPOSE exec -T webserver bash -lc 'airflow dags list-runs -d \"$d\" -o json | jq -r \'.[] | select(.state==\\"failed\\") | .run_id\''" 2>/dev/null) || true
   if [[ -z "$runs" ]]; then
     echo "✅ No failed runs for $d"; continue
   fi
