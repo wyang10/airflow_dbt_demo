@@ -83,7 +83,7 @@ dbt deps
     # Smoke line: run everything in project once per day
     # Use TaskGroups to keep structure simple but consistent
     dbt_run = dbt_run_group(
-        selector="path:models",
+        selector="path:models/bronze path:models/silver path:models/gold",
         env=env_vars,
         project_dir="/opt/airflow/dbt",
         pool="dbt",
@@ -91,7 +91,7 @@ dbt deps
 
     # Quality gate: must pass tests before completing the DAG
     dbt_test = dbt_test_group(
-        selector="path:models",
+        selector="path:models/bronze path:models/silver path:models/gold",
         env=env_vars,
         project_dir="/opt/airflow/dbt",
         outlets_datasets=[Dataset("dbt://gold/fct_orders")],

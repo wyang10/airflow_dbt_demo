@@ -70,14 +70,14 @@ dbt deps
 
     # Use reusable TaskGroups for dbt run/test
     run_grp = dbt_run_group(
-        selector="path:models",
+        selector="path:models/bronze path:models/silver path:models/gold",
         env=env_vars,
         project_dir="/opt/airflow/dbt",
         pool="dbt",
     )
 
     test_grp = dbt_test_group(
-        selector="path:models",
+        selector="path:models/bronze path:models/silver path:models/gold",
         env=env_vars,
         project_dir="/opt/airflow/dbt",
         outlets_datasets=[Dataset("dbt://gold/fct_orders")],
