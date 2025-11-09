@@ -1,0 +1,19 @@
+# Top-level requirements for the repository
+# Runtime dependencies used by DAGs and dbt (sourced from airflow/requirements.txt)
+dbt-core==1.10.13
+dbt-snowflake==1.10.2
+
+# Optional data quality (used by quality_checks DAG)
+great-expectations==0.18.14
+airflow-provider-great-expectations==0.2.8
+
+# Developer / test tools (configured in pyproject.toml). These are left unpinned
+# so contributors can choose appropriate versions. Pin them in a constraints file
+# or in an environment-specific requirements file if you need strict reproducibility.
+black
+ruff
+mypy
+pytest
+
+# Install with:
+#   python -m pip install -r requirements.txt

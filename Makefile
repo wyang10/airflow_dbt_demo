@@ -145,3 +145,13 @@ health: ## 健康检查（Airflow Web / Scheduler）
 .PHONY: qa
 qa: ## 零门槛本地 QA（parse + build + docs）
 	@bash scripts/qa.sh
+
+# ---------------------------
+# Great Expectations 清理旧数据	
+# ---------------------------
+
+.PHONY: prune_ge
+PRUNE_KEEP ?= 5
+
+prune_ge: ## 清理 GE 历史校验/文档，仅保留最近 PRUNE_KEEP 份
+	@bash scripts/prune_ge.sh "$(PRUNE_KEEP)"

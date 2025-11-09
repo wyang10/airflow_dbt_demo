@@ -37,3 +37,7 @@ dbt_packages/
 
 # Private doc (Chinese version for internal use)
 README_Fox.md
+
+# Great Expectations heavy artifacts
+great_expectations/uncommitted/validations/**
+great_expectations/uncommitted/data_docs/**

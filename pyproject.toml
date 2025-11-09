@@ -1,12 +1,21 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
 [tool.ruff]
-line-length = 120
+line-length = 100
+select = ["E","F","I","B"]   # E/F: pyflakes/pycodestyle, I: import, B: bugbear
+ignore = ["E203","W503"]
+exclude = ["airflow_logs","great_expectations/uncommitted","data_docs"]
 target-version = "py311"
-exclude = [
-  "data_pipeline/dbt_packages",
-  "data_pipeline/target",
-]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+strict = false
+warn_unused_ignores = true
+exclude = '(airflow_logs|great_expectations/uncommitted|data_docs)'
 
 [tool.pytest.ini_options]
 addopts = "-q"
-pythonpath = ["."]
-
+testpaths = ["tests"]
