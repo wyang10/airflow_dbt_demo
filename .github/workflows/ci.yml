@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
-      #   branches-ignore
-      # - main
+    # branches: [ main ]
+        branches-ignore
+      - main
   pull_request:
     branches: [ "**" ]
 
