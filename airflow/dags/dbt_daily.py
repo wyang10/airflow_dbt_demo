@@ -2,35 +2,47 @@
 
 Architecture:
 - dbt_deps -> dbt_run -> dbt_test
-- Uses a single Airflow pool "dbt" to serialize CLI runs and avoid target/ races
-- Passes only light metadata via ENV; no large XCom payloads
+- Pool "dbt" serializes CLI runs to avoid target/ races
+- Only light metadata via ENV; no large XCom payloads
 """
 
 from airflow import DAG
 from airflow.datasets import Dataset
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import ShortCircuitOperator
-from lib.creds import has_snowflake_creds
-from lib.dbt_groups import dbt_run_group, dbt_test_group
 from datetime import datetime, timedelta
 import os
 
-def g(k): 
+from lib.creds import has_snowflake_creds
+from lib.dbt_groups import dbt_run_group, dbt_test_group
+
+
+def g(k):
     return os.environ.get(k, "")
+
 
 # 统一的 ENV（两条 DAG 完全一致）
 env_vars = {
     "DBT_PROFILES_DIR": "/opt/airflow/dbt",
     # Traceability: pass query tag to Snowflake via dbt profile
     # Format: dag:task:run_id:queue:ts:try:run_type
-    "DBT_QUERY_TAG": "{{ dag.dag_id }}:{{ task_instance.task_id }}:{{ dag_run.run_id if dag_run else '' }}:{{ task_instance.queue if task_instance and task_instance.queue else 'default' }}:{{ ts_nodash }}:{{ task_instance.try_number if task_instance else '' }}:{{ dag_run.run_type if dag_run else '' }}",
-    "SNOWFLAKE_ACCOUNT":  g("SNOWFLAKE_ACCOUNT"),
-    "SNOWFLAKE_USER":     g("SNOWFLAKE_USER"),
+    "DBT_QUERY_TAG": (
+        "{{ dag.dag_id }}:"
+        "{{ task_instance.task_id }}:"
+        "{{ dag_run.run_id if dag_run else '' }}:"
+        "{{ task_instance.queue if task_instance and "
+        "task_instance.queue else 'default' }}:"
+        "{{ ts_nodash }}:"
+        "{{ task_instance.try_number if task_instance else '' }}:"
+        "{{ dag_run.run_type if dag_run else '' }}"
+    ),
+    "SNOWFLAKE_ACCOUNT": g("SNOWFLAKE_ACCOUNT"),
+    "SNOWFLAKE_USER": g("SNOWFLAKE_USER"),
     "SNOWFLAKE_PASSWORD": g("SNOWFLAKE_PASSWORD"),
-    "SNOWFLAKE_ROLE":     g("SNOWFLAKE_ROLE"),
+    "SNOWFLAKE_ROLE": g("SNOWFLAKE_ROLE"),
     "SNOWFLAKE_DATABASE": g("SNOWFLAKE_DATABASE"),
-    "SNOWFLAKE_WAREHOUSE":g("SNOWFLAKE_WAREHOUSE"),
-    "SNOWFLAKE_SCHEMA":   g("SNOWFLAKE_SCHEMA"),
+    "SNOWFLAKE_WAREHOUSE": g("SNOWFLAKE_WAREHOUSE"),
+    "SNOWFLAKE_SCHEMA": g("SNOWFLAKE_SCHEMA"),
     # 关键：补齐 PATH，确保 `dbt` 能被 BashOperator 找到
     "PATH": "/home/airflow/.local/bin:/usr/local/bin:/usr/bin:/bin",
 }
@@ -51,7 +63,9 @@ set -euo pipefail
 cd /opt/airflow/dbt
 
 echo '== ENV CHECK =='
-env | grep -E 'SNOWFLAKE_|DBT_|^PATH=' | sed 's/^SNOWFLAKE_PASSWORD=.*/SNOWFLAKE_PASSWORD=********/' || true
+env | grep -E 'SNOWFLAKE_|DBT_|^PATH=' \
+  | sed 's/^SNOWFLAKE_PASSWORD=.*/SNOWFLAKE_PASSWORD=********/' \
+  || true
 which dbt || true
 dbt --version || true
 """

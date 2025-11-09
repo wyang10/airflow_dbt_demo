@@ -27,13 +27,17 @@ def _build_dag_with_ge() -> DAG:
         )
 
     def _set_docs_http_url(context: Context):
-        # Rewrite GE file:// URL to the exposed http://localhost:8081 path for UI extra link
+        # Rewrite GE file:// URLs to http://localhost:8081
+        # so the clickable extra link still works outside the container
         ti = context.get("ti")
         try:
             url = ti.xcom_pull(key="data_docs_url")
         except Exception:
             url = None
-        prefix = "/opt/airflow/great_expectations/uncommitted/data_docs/local_site/"
+        prefix = (
+            "/opt/airflow/great_expectations/uncommitted/data_docs/"
+            "local_site/"
+        )
         if isinstance(url, str):
             if url.startswith("file://"):
                 path = url[len("file://"):]
@@ -51,7 +55,9 @@ def _build_dag_with_ge() -> DAG:
     with DAG(
         dag_id="quality_checks",
         start_date=datetime(2025, 11, 1),
-        schedule=None,  # Airflow 2.4+ 使用 schedule；老版本请改回 schedule_interval=None
+        # Airflow 2.4+ 使用 schedule；老版本请改回
+        # schedule_interval=None
+        schedule=None,
         catchup=False,
         description="Run Great Expectations suites against critical tables",
         tags=["quality", "ge"],

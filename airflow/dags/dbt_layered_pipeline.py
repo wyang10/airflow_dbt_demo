@@ -20,11 +20,16 @@ from lib.creds import has_snowflake_creds
 
 
 # ---------- 可按需修改 ----------
-DBT_PROJECT_DIR = "/opt/airflow/dbt"   # 容器内 dbt 项目根（与 docker-compose 挂载一致）
-DBT_PROFILES_DIR = "/opt/airflow/dbt"  # 通常与项目根同路径
-DBT_TARGET = os.environ.get("DBT_TARGET", "prod")   # 可用 .env 或容器 ENV 指定
-USE_DBT_BUILD = False  # 使用 run+test 拆分以体现“质量闸门”
-SCHEDULE_CRON = "0 3 * * *"  # 每日 03:00 UTC 触发
+# 容器内 dbt 项目根（与 docker-compose 挂载一致）
+DBT_PROJECT_DIR = "/opt/airflow/dbt"
+# 通常与项目根同路径
+DBT_PROFILES_DIR = "/opt/airflow/dbt"
+# 可用 .env 或容器 ENV 指定
+DBT_TARGET = os.environ.get("DBT_TARGET", "prod")
+# 使用 run+test 拆分以体现“质量闸门”
+USE_DBT_BUILD = False
+# 每日 03:00 UTC 触发
+SCHEDULE_CRON = "0 3 * * *"
 START_DATE = datetime(2025, 11, 1)
 RETRIES = 1
 RETRY_DELAY = timedelta(minutes=5)
@@ -38,13 +43,28 @@ def _g(k: str, default: str = "") -> str:
 
 # 透传运行 dbt 所需的关键 ENV
 # * 这里不硬编码敏感值；由 docker-compose/.env 注入容器，再原样透传给任务
+INTERVAL_VARS = (
+    "--vars \"{start_date: '{{ data_interval_start | ds }}', "
+    "end_date: '{{ data_interval_end | ds }}'}\""
+)
+
+
 ENV_VARS = {
     # dbt 需要
     "DBT_PROFILES_DIR": DBT_PROFILES_DIR,
     "DBT_TARGET": DBT_TARGET,
     # Traceability tag visible in Snowflake QUERY_HISTORY
     # dag:task:run_id:queue:ts:try:run_type
-    "DBT_QUERY_TAG": "{{ dag.dag_id }}:{{ task_instance.task_id }}:{{ dag_run.run_id if dag_run else '' }}:{{ task_instance.queue if task_instance and task_instance.queue else 'default' }}:{{ ts_nodash }}:{{ task_instance.try_number if task_instance else '' }}:{{ dag_run.run_type if dag_run else '' }}",
+    "DBT_QUERY_TAG": (
+        "{{ dag.dag_id }}:"
+        "{{ task_instance.task_id }}:"
+        "{{ dag_run.run_id if dag_run else '' }}:"
+        "{{ task_instance.queue if task_instance and "
+        "task_instance.queue else 'default' }}:"
+        "{{ ts_nodash }}:"
+        "{{ task_instance.try_number if task_instance else '' }}:"
+        "{{ dag_run.run_type if dag_run else '' }}"
+    ),
 
     # Snowflake 凭据（来自宿主 .env -> 容器环境）
     "SNOWFLAKE_ACCOUNT": _g("SNOWFLAKE_ACCOUNT"),
@@ -56,7 +76,10 @@ ENV_VARS = {
     "SNOWFLAKE_SCHEMA": _g("SNOWFLAKE_SCHEMA"),
 
     # 让 `dbt` 可执行（某些镜像下 PATH 可能缺少用户 bin）
-    "PATH": _g("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+    "PATH": _g(
+        "PATH",
+        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    ),
 }
 
 
@@ -77,9 +100,7 @@ def mk_layer_tasks(dag: DAG, layer: str):
         build = BashOperator(
             task_id=f"{layer}_build",
             bash_command=dbt_cmd(
-                "dbt build "
-                + f"--select '{selector}' "
-                + "--vars \"{start_date: '{{ data_interval_start | ds }}', end_date: '{{ data_interval_end | ds }}'}\""
+                "dbt build " + f"--select '{selector}' " + INTERVAL_VARS
             ),
             env=ENV_VARS,
             dag=dag,
@@ -88,8 +109,18 @@ def mk_layer_tasks(dag: DAG, layer: str):
         )
         return build, None
     # Use TaskGroups (dbt run/test) as quality gates per layer
-    run_grp = dbt_run_group(selector=selector, env=ENV_VARS, project_dir=DBT_PROJECT_DIR, pool="dbt")
-    test_grp = dbt_test_group(selector=selector, env=ENV_VARS, project_dir=DBT_PROJECT_DIR, pool="dbt")
+    run_grp = dbt_run_group(
+        selector=selector,
+        env=ENV_VARS,
+        project_dir=DBT_PROJECT_DIR,
+        pool="dbt",
+    )
+    test_grp = dbt_test_group(
+        selector=selector,
+        env=ENV_VARS,
+        project_dir=DBT_PROJECT_DIR,
+        pool="dbt",
+    )
     run_grp >> test_grp
     return run_grp, test_grp
 

@@ -6,6 +6,11 @@ from airflow.decorators import task_group
 from airflow.operators.bash import BashOperator
 from airflow.datasets import Dataset
 
+INTERVAL_VARS = (
+    "--vars \"{start_date: '{{ data_interval_start | ds }}', "
+    "end_date: '{{ data_interval_end | ds }}'}\""
+)
+
 
 def _dbt_cmd(project_dir: str, cmd: str) -> str:
     return f"""
@@ -33,11 +38,7 @@ def dbt_run_group(
         task_id="run",
         bash_command=_dbt_cmd(
             project_dir,
-            (
-                "dbt run "
-                + f"--select '{selector}' "
-                + "--vars \"{start_date: '{{ data_interval_start | ds }}', end_date: '{{ data_interval_end | ds }}'}\""
-            ),
+            ("dbt run " + f"--select '{selector}' " + INTERVAL_VARS),
         ),
         env=env,
         do_xcom_push=False,
@@ -58,11 +59,7 @@ def dbt_test_group(
         task_id="test",
         bash_command=_dbt_cmd(
             project_dir,
-            (
-                "dbt test "
-                + f"--select '{selector}' "
-                + "--vars \"{start_date: '{{ data_interval_start | ds }}', end_date: '{{ data_interval_end | ds }}'}\""
-            ),
+            ("dbt test " + f"--select '{selector}' " + INTERVAL_VARS),
         ),
         env=env,
         do_xcom_push=False,

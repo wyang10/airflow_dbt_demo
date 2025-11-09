@@ -34,10 +34,11 @@ with DAG(
         task_id="send_test_email",
         to=[os.environ.get("ALERT_EMAIL", "")],
         subject="SMTP smoke test: {{ dag.dag_id }} at {{ ts }}",
-        html_content="""
-            <h3>SMTP smoke test</h3>
-            <p>Sent by Airflow DAG <b>{{ dag.dag_id }}</b> at <code>{{ ts }}</code>.</p>
-        """,
+        html_content=(
+            "<h3>SMTP smoke test</h3>\n"
+            "<p>Sent by Airflow DAG <b>{{ dag.dag_id }}</b> "
+            "at <code>{{ ts }}</code>.</p>"
+        ),
         conn_id="smtp_mailpit",
     )
 

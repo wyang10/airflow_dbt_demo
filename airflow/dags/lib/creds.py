@@ -7,8 +7,13 @@ def has_snowflake_creds() -> bool:
         if not v:
             return False
         low = v.strip().lower()
-        return low not in {"changeme", "placeholder", "dummy", "example", "sample"}
+        return low not in {
+            "changeme",
+            "placeholder",
+            "dummy",
+            "example",
+            "sample",
+        }
 
     required = ("SNOWFLAKE_ACCOUNT", "SNOWFLAKE_USER", "SNOWFLAKE_PASSWORD")
     return all(ok(k) for k in required)
-

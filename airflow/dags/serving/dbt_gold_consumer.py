@@ -12,6 +12,12 @@ def _g(k: str, default: str = "") -> str:
     return os.environ.get(k, default)
 
 
+INTERVAL_VARS = (
+    "--vars \"{start_date: '{{ data_interval_start | ds }}', "
+    "end_date: '{{ data_interval_end | ds }}'}\""
+)
+
+
 ENV_VARS = {
     "DBT_PROFILES_DIR": "/opt/airflow/dbt",
     "SNOWFLAKE_ACCOUNT": _g("SNOWFLAKE_ACCOUNT"),
@@ -47,9 +53,11 @@ with DAG(
             "set -euo pipefail\n"
             "cd /opt/airflow/dbt\n"
             # Skip gracefully if no downstream models are tagged
-            "if ! dbt ls --select 'tag:downstream' | grep -q .; then echo 'No models with tag:downstream; skipping.'; exit 0; fi\n"
+            "if ! dbt ls --select 'tag:downstream' | grep -q .; then "
+            "echo 'No models with tag:downstream; skipping.'; exit 0; fi\n"
             "dbt run --select 'tag:downstream' "
-            "--vars \"{start_date: '{{ data_interval_start | ds }}', end_date: '{{ data_interval_end | ds }}'}\"\n"
+            + INTERVAL_VARS
+            + "\n"
         ),
         env=ENV_VARS,
         do_xcom_push=False,
