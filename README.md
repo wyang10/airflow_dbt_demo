@@ -1,175 +1,178 @@
-# Airflow + dbt + Snowflake (Postgres‑backed) Demo 🦊🐱
+# Airflow + dbt + Snowflake Demo (Postgres‑backed) 🦊🐱
 
-Layered pipeline with explicit quality gates and reusable TaskGroups.
+A stable, reproducible local data orchestration template: Apache Airflow for scheduling, dbt for modeling, Postgres as the Airflow metadata DB, and Snowflake as the warehouse. Comes with one‑command startup, health checks, regression validation, Great Expectations data quality, and Mailpit for notifications.
 
-Run Order (Layered Pipeline)
-- dbt_deps → [bronze.run] → [bronze.test] → [silver.run] → [silver.test] → [gold.run] → [gold.test] → publish Dataset `dbt://gold/fct_orders`
-
-TaskGroup Pattern
-- `dbt_run_group(selector, env, project_dir, pool)`: wraps `dbt run` with backfill vars `{start_date,end_date}`; XCom disabled; pool defaults to `dbt`.
-- `dbt_test_group(selector, env, project_dir, pool)`: wraps `dbt test` with the same vars; acts as the quality gate for the previous run group.
-- Benefits: consistent structure, minimal boilerplate, easy layering by chaining groups between domains.
-
-
-A reproducible, stable local data orchestration template: Apache Airflow for scheduling, dbt for modeling, Postgres as Airflow metadata DB, and Snowflake as the warehouse. Includes one-command startup, health checks, regression validation, and cleanup helpers.
+Highlights
+- Reusable TaskGroups wrap dbt run/test with backfill vars `{start_date,end_date}` to cut boilerplate
+- Layered pipeline (Bronze → Silver → Gold) with tests as quality gates between layers
+- Airflow Pool `dbt` serializes dbt CLI to avoid `target/` and `dbt_packages/` races
+- Publishes Dataset `dbt://gold/fct_orders` after gold tests for downstream subscription
 
 ## Quick Start
 
-Prereqs: Docker Desktop ≥ 4.x, GNU Make, bash, curl
+Prerequisites: Docker Desktop ≥ 4.x, GNU Make, bash, curl
 
-1) Credentials (kept local, not committed)
-- Create `airflow/.env` (you can copy from `airflow/.env.example`) and fill in Snowflake creds: account, user, password, role, warehouse, database, schema. These envs are passed into containers for dbt to use.
+1) Credentials (local only, not committed)
+- Copy `airflow/.env.example` to `airflow/.env` and fill Snowflake vars: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA`.
+- Optional: `ALERT_EMAIL` for failure notifications.
 
-2) Start (choose one mode)
-- `./launch.sh --init`      # one-time init + start
-- `./launch.sh --rebuild`   # rebuild images (installs deps) + start
-- `./launch.sh --upgrade`   # pull latest images and recreate containers
-- `./launch.sh --fresh`     # nuke volumes and start clean (dangerous)
-- When healthy, open: `http://localhost:8080`
-  - User/pass: `airflow / airflow`
+2) Start (pick one)
+- `make up`                 # init + start, opens the UI
+- `./launch.sh --init`      # one‑time init + start
+- `make rebuild` or `./launch.sh --rebuild`  # rebuild images then start
+- `make fresh`              # start clean, delete volumes (dangerous)
+- Open `http://localhost:8080` (user/pass: `airflow / airflow`)
 
 3) Validate
-- Trigger and wait for all DAGs to succeed: `make validate`
-- Or validate a subset: `make validate-daily` / `make validate-pipelines`
+- Trigger and wait for sample DAGs to succeed: `make validate`
+- Or a subset: `make validate-daily` / `make validate-pipelines`
 
-4) Clear red dots (historical failures)
+4) Clear historical failures (red dots in UI)
 - Keep run records, clear failed task instances: `make clear-failed`
-- Remove failed runs (destructive): `make clear-failed-hard`
+- Delete failed runs (destructive): `make clear-failed-hard`
 
-## Layout
+Or Simply Start:
+```
+./launch.sh --fresh --no-open && make validate
+```
+
+## Project Layout
 
 ```
 ./
-├─ airflow/                  # Airflow (DAGs, container requirements, .env)
+├─ airflow/                  # Airflow (DAGs, container deps, .env)
 │  ├─ dags/
 │  │  ├─ dbt_daily.py
-│  │  ├─ dbt_pipeline_dag.py
-│  │  └─ dbt_layered_pipeline.py
-│  ├─ requirements.txt       # installed at container startup via _PIP_ADDITIONAL_REQUIREMENTS
-│  └─ .env                   # Snowflake credentials (gitignored)
-├─ data_pipeline/            # dbt project root
+│  │  ├─ dbt_daily_pipeline.py
+│  │  ├─ dbt_layered_pipeline.py
+│  │  ├─ smtp_smoke.py
+│  │  └─ serving/
+│  │     ├─ quality_checks.py
+│  │     └─ dbt_gold_consumer.py
+│  ├─ requirements.txt       # dbt + GE provider installed in the image
+│  └─ .env                   # Snowflake + optional alert email (gitignored)
+├─ data_pipeline/            # dbt project
 │  ├─ dbt_project.yml
-│  ├─ profiles.yml
+│  ├─ profiles.yml           # reads Snowflake creds from env vars
 │  ├─ models/
 │  │  ├─ bronze/
 │  │  ├─ silver/
 │  │  └─ gold/
-│  ├─ snippets/              # copy-paste templates (relationships, sources)
-│  └─ .gitignore
-├─ scripts/
-│  ├─ validate.sh            # trigger + wait for 3 DAGs
-│  └─ clear_failed.sh        # clear failed instances / delete failed runs
-├─ docker-compose.yml        # Postgres + LocalExecutor root stack
-├─ launch.sh                 # one-click bootstrap + health + logs
-├─ Makefile                  # handy targets (validate/clear/health)
+│  └─ snippets/              # copy‑ready templates (sources/tests)
+├─ great_expectations/       # GE config, validations, local Data Docs
+├─ scripts/                  # validation, cleanup, QA helpers
+├─ docker-compose.yml        # Postgres + Airflow + Mailpit + Nginx(GE docs)
+├─ Makefile                  # handy commands (make help)
 └─ README.md
 ```
 
-## Stack & Config
+## Stack & Versions
 
 - Airflow 2.9.3 (`apache/airflow:2.9.3-python3.11`)
   - Executor: LocalExecutor
-  - Metadata DB: Postgres (`postgres:15-alpine`)
+  - Metadata DB: Postgres 15
   - Healthcheck: `airflow db check`
-- dbt-core 1.10 + dbt-snowflake 1.10 (installed at container start)
-- Mounts:
-  - `./airflow/dags -> /opt/airflow/dags`
-  - `./data_pipeline -> /opt/airflow/dbt`
+- dbt-core 1.10 + dbt-snowflake 1.10 (installed in container)
+- Great Expectations 0.18 + Airflow provider
+- Mailpit (local SMTP sink, UI: `http://localhost:8025`)
+- Nginx serves GE Data Docs: `http://localhost:8081`
 
-Compose highlights:
-- `airflow-init` runs `airflow db init`, creates `airflow/airflow` user, and a `dbt` pool (size 1)
-- Scheduler/Webserver depend on Postgres healthy + init completed
+Mounts
+- `./airflow/dags -> /opt/airflow/dags`
+- `./data_pipeline -> /opt/airflow/dbt`
+- `./great_expectations -> /opt/airflow/great_expectations`
 
-## Runtime Conventions (stability)
+## DAGs & Run Order
 
-- All dbt tasks use Airflow pool `dbt` (size 1) to serialize dbt CLI; avoids `target/` and `dbt_packages/` races
-- DAGs use `max_active_runs=1` and one retry by default to reduce flakiness
-- No deletion of `dbt_packages/target` in tasks; only `dbt deps` to keep deps consistent
+- `dbt_layered_pipeline` (flagship):
+  - `dbt_deps → [bronze.run] → [bronze.test] → [silver.run] → [silver.test] → [gold.run] → [gold.test] → publish Dataset dbt://gold/fct_orders`
+- `dbt_daily_pipeline`: single‑line pipeline using TaskGroups
+- `dbt_daily`: minimal smoke (`dbt_deps → dbt_run → dbt_test`)
+- `dbt_gold_consumer`: subscribes to `dbt://gold/fct_orders` and runs downstream (`tag:downstream`)
+- `quality_checks`: runs GE checkpoint `daily_metrics_chk`, updates Data Docs
+- `smtp_smoke`: SMTP smoke test (requires `ALERT_EMAIL`)
+
+Mermaid — Layered pipeline order
+
+```mermaid
+flowchart LR
+  deps[dbt_deps]
+  br_run[bronze.run]
+  br_test[bronze.test]
+  si_run[silver.run]
+  si_test[silver.test]
+  go_run[gold.run]
+  go_test[gold.test]
+  dataset[[Publish Dataset: dbt://gold/fct_orders]]
+
+  deps --> br_run --> br_test --> si_run --> si_test --> go_run --> go_test --> dataset
+```
+
+TaskGroup helpers live in `airflow/dags/lib/dbt_groups.py`.
+
+## Great Expectations (Data Quality)
+
+- Local Data Docs: `http://localhost:8081`
+- DAG: `quality_checks` runs `daily_metrics_chk` and calls `UpdateDataDocsAction`
+- Airflow task extra link rewrites container `file://...` to host `http://localhost:8081/...`
+- Prune historical GE outputs (keep last N):
+  - `make prune_ge` (default keep 5) or `make prune_ge PRUNE_KEEP=10`
+
+## Notifications & Email (Mailpit by default)
+
+- Dev default: Mailpit UI at `http://localhost:8025`, SMTP `mailpit:1025` (no auth/TLS)
+- Switch to real SMTP (example: Gmail)
+  - Airflow UI → Admin → Connections → +
+    - Conn Id: `smtp_gmail`, Type: `smtp`, Host: `smtp.gmail.com`, Port: `587`
+    - Login: your address; Password: App Password
+    - Extra: `{ "starttls": true }`
+  - Or via CLI and then update `smtp_smoke` to use your `conn_id`:
+
+```
+docker compose exec -T webserver \
+  airflow connections add smtp_gmail \
+  --conn-type smtp --conn-host smtp.gmail.com --conn-port 587 \
+  --conn-login YOU@gmail.com --conn-password 'APP_PASSWORD' \
+  --conn-extra '{"starttls": true}'
+```
+
+## Local dbt Dev (optional)
+
+- `make env` creates a local venv for dbt, loads `airflow/.env`, and runs a quick check
+- Useful targets:
+  - `make dbt-debug` / `make dbt-parse` / `make dbt-ls`
+  - `make dbt-run-bronze` / `make dbt-run-silver` / `make dbt-run-gold`
+  - `make dbt-build` (full build + tests)
+  - `make dbt-docs` (generate + serve docs locally)
 
 ## Common Ops
 
-- Check health
-  - `docker compose ps`
-  - `curl -fsS http://localhost:8080/health`
-- Tail logs
-  - `docker compose logs webserver --tail 100 -f`
-  - `docker compose logs scheduler --tail 100 -f`
-- Trigger / inspect DAGs
-  - `docker compose exec -T webserver airflow dags list`
-  - `docker compose exec -T webserver airflow dags trigger dbt_daily`
-  - `docker compose exec -T webserver airflow dags list-runs -d dbt_daily -o table`
+- `make help`     list available commands
+- `make ps`       container status
+- `make logs`     follow webserver + scheduler logs
+- `make health`   web/scheduler health check
+- `make down`     stop containers (keep volumes)
+- `make destroy`  stop and delete volumes (dangerous)
 
-## Email / Notifications (built‑in Mailpit)
+## Stability Conventions
 
-- This stack includes a local SMTP sink using Mailpit for easy testing.
-  - Web UI: `http://localhost:8025`
-  - SMTP host/port (preconfigured): `mailpit:1025` (no auth, no TLS)
-- Smoke test DAG: `smtp_smoke`
-  - Trigger in UI or run: `docker compose exec -T webserver airflow dags trigger smtp_smoke`
-  - Open Mailpit UI to see the test email in the inbox.
-- Default connection used by DAG: `smtp_mailpit` (auto-provisioned via env `AIRFLOW_CONN_SMTP_MAILPIT`).
-- Switching to a real SMTP provider (e.g., Gmail/Mailtrap):
-  - Create a new Airflow Connection `smtp_gmail` via UI (Admin → Connections → +):
-    - Conn Id: `smtp_gmail`
-    - Conn Type: `smtp`
-    - Host: `smtp.gmail.com`
-    - Port: `587`
-    - Login: `<your Gmail address>`
-    - Password: `<Gmail App Password>`
-    - Extra: `{ "starttls": true }`
-  - 或使用 CLI：
-    - `docker compose exec -T webserver airflow connections add smtp_gmail \`
-      `--conn-type smtp --conn-host smtp.gmail.com --conn-port 587 \`
-      `--conn-login YOUR@GMAIL.COM --conn-password 'APP_PASSWORD' \`
-      `--conn-extra '{"starttls": true}'`
-  - 将 `smtp_smoke` 的 `conn_id` 改为 `smtp_gmail`（当前默认已用 `smtp_mailpit`）。
-
-Tip: `airflow/.env` 里包含一个空密码的模板变量（注释行）：
-`AIRFLOW_CONN_SMTP_GMAIL=smtp://your.name@gmail.com:@smtp.gmail.com:587?starttls=true`
-需要真实发信时，建议直接用 Airflow UI/CLI 建立连接并填入 App Password。
-
-## Great Expectations Data Docs
-
-- 已集成本地 Data Docs，可通过 Nginx 暴露为静态站点：
-  - 打开 `http://localhost:8081`
-- 质量检查 DAG：`quality_checks`
-  - 运行后自动生成/更新 Data Docs（`UpdateDataDocsAction`）
-  - 在 Airflow 任务页面的 Extra Links 中，点击 “Great Expectations Data Docs” 即可跳转（已自动重写为 `http://localhost:8081/...`）
-
-## Pipeline Differences & Run Order
-
-What’s special in this repo:
-- TaskGroup helpers for dbt run/test with backfill vars and pools (`airflow/dags/lib/`)
-- Layered pipeline enforces quality gates between layers
-- Datasets publish/subscribe from gold completion
-- Optional Great Expectations context is mounted and runnable out-of-the-box
-
-Run order (layered example):
-
-```
-dbt_deps
-  → [bronze.run] → [bronze.test]
-  → [silver.run] → [silver.test]
-  → [gold.run]   → [gold.test] → publishes Dataset: dbt://gold/fct_orders
-```
-
-dbt_daily (smoke) is simpler:
-
-```
-dbt_deps → dbt_run → dbt_test → publishes Dataset
-```
-
-## Templates (sources/tests)
-
-- See `data_pipeline/snippets/` for new-style relationships (with `arguments`) and a standard source template. Copy and replace placeholders.
-
-## Secrets
-
-- `.env` is gitignored — keep credentials out of the repo
-- For production, bake deps into an image and use a secret manager (Vault/KMS/Secrets Manager)
+- All dbt tasks use Pool `dbt` (size 1) to serialize CLI runs
+- DAGs use `max_active_runs=1` and 1 retry by default
+- Keep deps consistent with `dbt deps`; do not delete `target/` or `dbt_packages/` in tasks
 
 ## Troubleshooting
 
-- UI red dots indicate historical failures — use `make clear-failed` to clean up
-- If containers restart repeatedly: `./launch.sh --fresh`
-- If Docker Desktop misbehaves: restart Docker, then rerun `./launch.sh`
+- Web health: `curl -fsS http://localhost:8080/health`; restart Docker and `make up`
+- No Snowflake creds: dbt tasks are ShortCircuited to avoid noisy failures
+- Red dots in UI: `make clear-failed` or `make clear-failed-hard`
+- GE provider missing: installed via `airflow/requirements.txt`
+- dbt not found: container PATH includes `~/.local/bin`; for local dev run `make env`
+
+## Security
+
+- `airflow/.env` is gitignored — do not commit real credentials
+- For production, bake dependencies into images and use a Secret Manager (Vault/KMS/Secrets Manager)
+
+## License
+
+MIT — see `LICENSE` at the repo root.
