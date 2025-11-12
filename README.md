@@ -8,6 +8,14 @@ Highlights
 - Airflow Pool `dbt` serializes dbt CLI to avoid `target/` and `dbt_packages/` races
 - Publishes Dataset `dbt://gold/fct_orders` after gold tests for downstream subscription
 
+
+
+
+![Airflow Dags](tests/picture/airflow.png)
+![Mailpit + Doc](tests/picture/ge.png)
+![Docker + CICD](tests/picture/cicd.png)
+
+
 ## Quick Start
 
 Prerequisites: Docker Desktop ≥ 4.x, GNU Make, bash, curl
