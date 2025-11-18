@@ -102,7 +102,7 @@ Mounts
 - `smtp_smoke`: SMTP smoke test (requires `ALERT_EMAIL`)
 
 ## Mermaid — Layered pipeline order
-![Mermaid — Layered pipeline order]（tests/demo/architecture.png）
+![]（tests/demo/architecture.png）
 
 TaskGroup helpers live in `airflow/dags/lib/dbt_groups.py`.
 
