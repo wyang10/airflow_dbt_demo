@@ -11,9 +11,9 @@ Highlights
 
 A stable, reproducible local data orchestration template: Apache Airflow for scheduling, dbt for modeling, Postgres as the Airflow metadata DB, and Snowflake as the warehouse. Comes with one‑command startup, health checks, regression validation, Great Expectations data quality, and Mailpit for notifications.
 
-![Airflow Dags](tests/picture/airflow.png)
-![Mailpit + Doc](tests/picture/ge.png)
-![Docker + CICD](tests/picture/cicd.png)
+![Airflow Dags](tests/demo/airflow.png)
+![Mailpit + Doc](tests/demo/ge.png)
+![Docker + CICD](tests/demo/cicd.png)
 
 
 ## Quick Start
@@ -101,21 +101,8 @@ Mounts
 - `quality_checks`: runs GE checkpoint `daily_metrics_chk`, updates Data Docs
 - `smtp_smoke`: SMTP smoke test (requires `ALERT_EMAIL`)
 
-Mermaid — Layered pipeline order
-
-```mermaid
-flowchart LR
-  deps[dbt_deps]
-  br_run[bronze.run]
-  br_test[bronze.test]
-  si_run[silver.run]
-  si_test[silver.test]
-  go_run[gold.run]
-  go_test[gold.test]
-  dataset[[Publish Dataset: dbt://gold/fct_orders]]
-
-  deps --> br_run --> br_test --> si_run --> si_test --> go_run --> go_test --> dataset
-```
+## Mermaid — Layered pipeline order
+![Mermaid — Layered pipeline order]（tests/demo/architecture.png）
 
 TaskGroup helpers live in `airflow/dags/lib/dbt_groups.py`.
 

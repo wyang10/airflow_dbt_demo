@@ -1,0 +1,13 @@
+
+flowchart LR
+  deps[dbt_deps]
+  br_run[bronze.run]
+  br_test[bronze.test]
+  si_run[silver.run]
+  si_test[silver.test]
+  go_run[gold.run]
+  go_test[gold.test]
+  dataset[[Publish Dataset: dbt://gold/fct_orders]]
+
+  deps --> br_run --> br_test --> si_run --> si_test --> go_run --> go_test --> dataset
+
