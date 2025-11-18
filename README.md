@@ -1,4 +1,4 @@
-# Airflow + dbt + Snowflake Demo (Postgres‑backed) 🦊🐱
+# Airflow + dbt + Snowflake + Docker + CICD Demo (Postgres‑backed) 🦊🐱
 
 A production-ready Airflow + dbt + Snowflake data orchestration demo for rapid onboarding and reproducible pipelines.
 
