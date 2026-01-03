@@ -1,11 +1,37 @@
 data_pipeline:
-  target: dev
+  # Switch auth modes by setting DBT_TARGET:
+  # - dev (default): username/password
+  # - dev_keypair: key pair auth (recommended when MFA is enforced)
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
   outputs:
-    dev:
+    dev: &dev_password
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
       user: "{{ env_var('SNOWFLAKE_USER') }}"
       password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"   # ← 统一
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'dbt_role') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'DBT_DB') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'DBT_WH') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'DBT_SCHEMA') }}"
+      threads: 8
+      query_tag: "{{ env_var('DBT_QUERY_TAG', '') }}"
+
+    # Back-compat alias (optional)
+    dev_password:
+      <<: *dev_password
+
+    # Key pair authentication (Snowflake JWT). Do not set password for this target.
+    # Setup:
+    # 1) Generate key pair, set user's RSA_PUBLIC_KEY in Snowflake
+    # 2) Put the private key file where dbt can read it (local path or container mount)
+    # 3) Set DBT_TARGET=dev_keypair and SNOWFLAKE_PRIVATE_KEY_PATH (and passphrase if any)
+    dev_keypair:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
       role: "{{ env_var('SNOWFLAKE_ROLE', 'dbt_role') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'DBT_DB') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'DBT_WH') }}"

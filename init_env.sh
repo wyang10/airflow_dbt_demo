@@ -9,7 +9,7 @@
 ### 
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 echo "📁 Project root: $PROJECT_ROOT"
 
 # 1) 本地 dbt 虚拟环境（用于你在宿主机上跑 dbt 命令）
@@ -23,11 +23,10 @@ broken_venv() {
   [[ -x "$VENV_DIR/bin/python" ]] || return 0
   # 3) 试跑一个最简单的命令，失败则认为损坏
   "$VENV_DIR/bin/python" -c 'import sys; assert sys.version_info.major >= 3' >/dev/null 2>&1 || return 0
-  # 4) 检查 pip shebang 是否指向当前目录(可选)
+  # 4) 检查 pip shebang 是否指向当前 venv（目录移动后常见问题）
   local pip_head
   pip_head="$(head -n1 "$VENV_DIR/bin/pip" 2>/dev/null || true)"
-  if [[ "$pip_head" =~ \/Users\/weihongyang\/data_pipeline\/\.venv ]]; then
-    # 旧路径残留（未包含 Desktop），视为损坏
+  if [[ "$pip_head" == "#!"* ]] && [[ "$pip_head" != "#!$VENV_DIR/"* ]]; then
     return 0
   fi
   return 1 # 不损坏
@@ -63,6 +62,17 @@ if [[ -f "$PROJECT_ROOT/airflow/.env" ]]; then
   source "$PROJECT_ROOT/airflow/.env"
   set +a
   echo "🔐 Loaded env from airflow/.env"
+
+  # If the env is configured for containers (e.g. /opt/airflow/secrets/...),
+  # remap to a local file under ./secrets/ so `dbt` on the host can still run.
+  if [[ -n "${SNOWFLAKE_PRIVATE_KEY_PATH:-}" ]] && [[ ! -f "${SNOWFLAKE_PRIVATE_KEY_PATH}" ]]; then
+    key_base="$(basename "${SNOWFLAKE_PRIVATE_KEY_PATH}")"
+    local_key="$PROJECT_ROOT/secrets/$key_base"
+    if [[ -f "$local_key" ]]; then
+      export SNOWFLAKE_PRIVATE_KEY_PATH="$local_key"
+      echo "🔑 Remapped SNOWFLAKE_PRIVATE_KEY_PATH -> $SNOWFLAKE_PRIVATE_KEY_PATH (host)"
+    fi
+  fi
 else
   echo "⚠️  Missing: $PROJECT_ROOT/airflow/.env  (请先创建并写入 Snowflake 变量)"
 fi

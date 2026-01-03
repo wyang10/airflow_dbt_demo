@@ -2,7 +2,7 @@ with orders as (select * from {{ ref('stg_tpch_orders') }}),
      line_item as (select * from {{ ref('stg_tpch_line_items') }})
 
 select
-  line_item.order_key       as order_item_key,
+  to_varchar(line_item.order_key) || '-' || to_varchar(line_item.line_number) as order_item_key,
   line_item.part_key,
   line_item.line_number,
   line_item.extended_price,

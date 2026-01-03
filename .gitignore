@@ -41,3 +41,7 @@ dbt_packages/
 # Great Expectations heavy artifacts
 great_expectations/uncommitted/validations/**
 great_expectations/uncommitted/data_docs/**
+
+# Local secrets (e.g. Snowflake key pair)
+secrets/*
+!secrets/README.md

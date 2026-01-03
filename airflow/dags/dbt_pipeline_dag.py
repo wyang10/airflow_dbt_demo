@@ -16,6 +16,7 @@ def g(k):
 # 与 dbt_daily 完全一致的 ENV
 env_vars = {
     "DBT_PROFILES_DIR": "/opt/airflow/dbt",
+    "DBT_TARGET": g("DBT_TARGET") or "dev",
     # dag:task:run_id:queue:ts:try:run_type
     "DBT_QUERY_TAG": (
         "{{ dag.dag_id }}:"
@@ -30,6 +31,9 @@ env_vars = {
     "SNOWFLAKE_ACCOUNT": g("SNOWFLAKE_ACCOUNT"),
     "SNOWFLAKE_USER": g("SNOWFLAKE_USER"),
     "SNOWFLAKE_PASSWORD": g("SNOWFLAKE_PASSWORD"),
+    "SNOWFLAKE_PRIVATE_KEY_PATH": g("SNOWFLAKE_PRIVATE_KEY_PATH"),
+    "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": g("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"),
+    "SNOWFLAKE_OAUTH_TOKEN": g("SNOWFLAKE_OAUTH_TOKEN"),
     "SNOWFLAKE_ROLE": g("SNOWFLAKE_ROLE"),
     "SNOWFLAKE_DATABASE": g("SNOWFLAKE_DATABASE"),
     "SNOWFLAKE_WAREHOUSE": g("SNOWFLAKE_WAREHOUSE"),

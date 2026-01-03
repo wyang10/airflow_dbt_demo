@@ -3,16 +3,25 @@ version: 2
 models:
   - name: int_order_items
     description: Enriched order items joined with orders
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["order_key", "line_number"]
+          config:
+            severity: error
     columns:
       - name: order_key
         description: FK to stg_tpch_orders.order_key
         tests:
           - not_null:
-              severity: error
+              config:
+                severity: error
           - relationships:
-              to: ref('stg_tpch_orders')
-              field: order_key
-              severity: error
+              arguments:
+                to: ref('stg_tpch_orders')
+                field: order_key
+              config:
+                severity: error
       - name: order_date
         description: Order date propagated from orders
         tests:
@@ -37,4 +46,3 @@ models:
       - name: item_discount_amount
         tests:
           - not_null
-

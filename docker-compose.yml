@@ -26,6 +26,7 @@ x-airflow-common: &airflow-common
     - ./airflow/dags:/opt/airflow/dags
     - ./data_pipeline:/opt/airflow/dbt
     - ./great_expectations:/opt/airflow/great_expectations
+    - ./secrets:/opt/airflow/secrets:ro
   healthcheck:
     test: ["CMD", "bash", "-c", "airflow db check"]
     interval: 30s

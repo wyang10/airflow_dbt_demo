@@ -6,19 +6,23 @@ models:
       - name: order_date
         tests:
           - not_null:
-              severity: error
+              config:
+                severity: error
 
       - name: items_cnt
         tests:
           - not_null:
-              severity: error
+              config:
+                severity: error
 
       - name: gross_item_sales_amount
         tests:
           - not_null:
-              severity: error
+              config:
+                severity: error
 
       - name: item_discount_amount
         tests:
           - not_null:
-              severity: error
+              config:
+                severity: error

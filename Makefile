@@ -25,43 +25,43 @@ help: ## 显示可用命令
 # 环境初始化 / 本地 dbt
 # ---------------------------
 .PHONY: env
-env:  ## 一键初始化本地环境（source init_env.sh）
+env:  ## 初始化本地 dbt 环境（注意：不会持久化到你的当前终端）
 	@test -x "$(PROJECT_ROOT)/init_env.sh" || { echo "❌ 找不到 init_env.sh 或无执行权限"; exit 1; }
-	@source "$(PROJECT_ROOT)/init_env.sh"
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh"; echo ""; echo "提示：如需让 venv/环境变量留在当前终端，请手动运行：source ./init_env.sh"'
 
 .PHONY: dbt-debug
 dbt-debug: env ## dbt debug 自检
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt debug
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt debug'
 
 .PHONY: dbt-parse
 dbt-parse: env ## dbt parse（解析项目）
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt parse
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt parse'
 
 .PHONY: dbt-ls
 dbt-ls: env ## 列出所有模型
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls'
 
 .PHONY: dbt-ls-bronze dbt-ls-silver dbt-ls-gold
 dbt-ls-bronze: env ## 列出 bronze 模型
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls --select 'path:models/bronze'
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls --select "path:models/bronze"'
 dbt-ls-silver: env ## 列出 silver 模型
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls --select 'path:models/silver'
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls --select "path:models/silver"'
 dbt-ls-gold:   env ## 列出 gold 模型
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls --select 'path:models/gold'
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt ls --select "path:models/gold"'
 
 .PHONY: dbt-run-bronze dbt-run-silver dbt-run-gold dbt-build
 dbt-run-bronze: env ## 仅跑 bronze
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt run --select 'path:models/bronze'
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt run --select "path:models/bronze"'
 dbt-run-silver: env ## 仅跑 silver
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt run --select 'path:models/silver'
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt run --select "path:models/silver"'
 dbt-run-gold:   env ## 仅跑 gold
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt run --select 'path:models/gold'
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt run --select "path:models/gold"'
 dbt-build:      env ## 全量构建（含测试）
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt build
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt build'
 
 .PHONY: dbt-docs
 dbt-docs: env ## 生成 + 本地预览文档（前台）
-	@cd "$(PROJECT_ROOT)/data_pipeline" && dbt docs generate && dbt docs serve
+	@bash -lc 'source "$(PROJECT_ROOT)/init_env.sh" >/dev/null 2>&1 || true; cd "$(PROJECT_ROOT)/data_pipeline" && dbt docs generate && dbt docs serve'
 
 # ---------------------------
 # Docker / Airflow 管理
