@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: stg_tpch_orders
+    description: TPCH orders staged with consistent naming
+    columns:
+      - name: order_key
+        tests:
+          - not_null
+          - unique
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch_customers')
+                field: customer_key
+      - name: status_code
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["O", "F", "P"]
+      - name: order_date
+        tests:
+          - not_null
+
+  - name: stg_tpch_line_items
+    description: TPCH lineitems staged with consistent naming
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["order_key", "line_number"]
+    columns:
+      - name: order_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch_orders')
+                field: order_key
+      - name: part_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch_parts')
+                field: part_key
+      - name: supplier_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch_suppliers')
+                field: supplier_key
+      - name: ship_date
+        tests:
+          - not_null
+      - name: commit_date
+        tests:
+          - not_null
+      - name: receipt_date
+        tests:
+          - not_null
+
+  - name: stg_tpch_customers
+    description: TPCH customers staged with consistent naming
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+          - unique
+      - name: market_segment
+        tests:
+          - not_null
+
+  - name: stg_tpch_parts
+    description: TPCH parts staged with consistent naming
+    columns:
+      - name: part_key
+        tests:
+          - not_null
+          - unique
+      - name: brand
+        tests:
+          - not_null
+
+  - name: stg_tpch_suppliers
+    description: TPCH suppliers staged with consistent naming
+    columns:
+      - name: supplier_key
+        tests:
+          - not_null
+          - unique
+

@@ -17,11 +17,9 @@ def _dbt_cmd(project_dir: str, cmd: str) -> str:
 set -euo pipefail
 cd {project_dir}
 dbt --version || true
-# Ensure packages are present to avoid 'Failed to read package' errors
-if [ ! -f "dbt_packages/dbt_utils/dbt_project.yml" ]; then
-  echo '== Ensuring dbt packages (dbt deps) =='
-  dbt deps || true
-fi
+echo '== Ensuring dbt packages (dbt deps) =='
+dbt deps
+test -f "dbt_packages/dbt_utils/dbt_project.yml"
 {cmd}
 """.strip()
 

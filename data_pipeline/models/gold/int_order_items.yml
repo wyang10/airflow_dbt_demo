@@ -10,6 +10,11 @@ models:
           config:
             severity: error
     columns:
+      - name: order_item_key
+        description: Stable unique key for an order line item
+        tests:
+          - not_null
+          - unique
       - name: order_key
         description: FK to stg_tpch_orders.order_key
         tests:
@@ -22,6 +27,14 @@ models:
                 field: order_key
               config:
                 severity: error
+      - name: supplier_key
+        description: FK to stg_tpch_suppliers.supplier_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch_suppliers')
+                field: supplier_key
       - name: order_date
         description: Order date propagated from orders
         tests:

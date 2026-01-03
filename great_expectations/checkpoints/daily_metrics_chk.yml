@@ -19,8 +19,8 @@ validations:
     batch_request:
       datasource_name: pandas_runtime
       data_connector_name: runtime_data_connector
-      data_asset_name: dummy_csv
+      data_asset_name: fct_orders_csv
       runtime_parameters:
-        path: /opt/airflow/great_expectations/uncommitted/data/dummy.csv
+        path: /opt/airflow/great_expectations/uncommitted/data/fct_orders.csv
       batch_identifiers:
-        default_identifier_name: dummy_run
+        default_identifier_name: fct_orders_run

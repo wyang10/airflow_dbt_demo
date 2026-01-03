@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: int_orders_enriched
+    description: Order-level enrichment aggregated from staged orders and line items
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - unique
+      - name: order_date
+        tests:
+          - not_null
+      - name: customer_id
+        tests:
+          - not_null
+
+  - name: int_shipment_events
+    description: Order-item shipping/receipt attributes for SLA-style analysis
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["order_key", "line_number"]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "receipt_date >= ship_date"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ship_date >= commit_date"
+    columns:
+      - name: order_key
+        tests:
+          - not_null
+      - name: line_number
+        tests:
+          - not_null
+      - name: customer_key
+        tests:
+          - not_null
+      - name: part_key
+        tests:
+          - not_null
+      - name: supplier_key
+        tests:
+          - not_null
+      - name: order_date
+        tests:
+          - not_null
+      - name: commit_date
+        tests:
+          - not_null
+      - name: ship_date
+        tests:
+          - not_null
+      - name: receipt_date
+        tests:
+          - not_null
+

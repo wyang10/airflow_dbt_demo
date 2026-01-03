@@ -4,12 +4,39 @@
   "expectations": [
     {
       "expectation_type": "expect_table_row_count_to_be_between",
-      "kwargs": {"min_value": 0}
+      "kwargs": {"min_value": 1}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {"column": "order_date"}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {"column": "items_cnt"}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {"column": "gross_item_sales_amount"}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {"column": "item_discount_amount"}
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {"column": "items_cnt", "min_value": 0}
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {"column": "gross_item_sales_amount", "min_value": 0}
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {"column": "item_discount_amount", "min_value": 0}
     }
   ],
   "meta": {
     "created_by": "codex-cli",
-    "notes": "Minimal suite to validate runtime batch has non-negative row count"
+    "notes": "Validates fct_orders daily metrics exported from Snowflake"
   }
 }
-

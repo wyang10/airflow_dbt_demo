@@ -14,6 +14,13 @@ sources:
             tests:
               - unique
               - not_null
+          - name: o_custkey
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: "{{ source('tpch', 'customer') }}"
+                    field: c_custkey
 
       - name: lineitem
         # 选一个代表“加载时间”的日期列，这里用发货日
@@ -21,8 +28,60 @@ sources:
         columns:
           - name: l_orderkey
             tests:
+              - not_null
               - relationships:
                   arguments:
                     to: "{{ source('tpch', 'orders') }}"
                     field: o_orderkey
+          - name: l_linenumber
+            tests:
+              - not_null
+          - name: l_partkey
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: "{{ source('tpch', 'part') }}"
+                    field: p_partkey
+          - name: l_suppkey
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: "{{ source('tpch', 'supplier') }}"
+                    field: s_suppkey
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: ["l_orderkey", "l_linenumber"]
+
+      - name: customer
+        loaded_at_field: null
+        columns:
+          - name: c_custkey
+            tests:
+              - unique
+              - not_null
+          - name: c_mktsegment
+            tests:
+              - not_null
+
+      - name: part
+        loaded_at_field: null
+        columns:
+          - name: p_partkey
+            tests:
+              - unique
+              - not_null
+          - name: p_brand
+            tests:
+              - not_null
+
+      - name: supplier
+        loaded_at_field: null
+        columns:
+          - name: s_suppkey
+            tests:
+              - unique
+              - not_null
                          

@@ -1,0 +1,181 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: Customer dimension (TPCH CUSTOMER) with surrogate key
+    columns:
+      - name: customer_sk
+        tests:
+          - not_null
+          - unique
+      - name: customer_key
+        tests:
+          - not_null
+          - unique
+      - name: market_segment
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["AUTOMOBILE", "BUILDING", "FURNITURE", "HOUSEHOLD", "MACHINERY"]
+
+  - name: dim_part
+    description: Part dimension (TPCH PART) with surrogate key
+    columns:
+      - name: part_sk
+        tests:
+          - not_null
+          - unique
+      - name: part_key
+        tests:
+          - not_null
+          - unique
+      - name: brand
+        tests:
+          - not_null
+
+  - name: dim_supplier
+    description: Supplier dimension (TPCH SUPPLIER) with surrogate key
+    columns:
+      - name: supplier_sk
+        tests:
+          - not_null
+          - unique
+      - name: supplier_key
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_date
+    description: Canonical day-level date spine
+    columns:
+      - name: date_day
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_sla_policy
+    description: SLA target policy by customer market segment (demo policy)
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "sla_target_days > 0"
+    columns:
+      - name: sla_policy_sk
+        tests:
+          - not_null
+          - unique
+      - name: market_segment
+        tests:
+          - not_null
+          - unique
+      - name: sla_target_days
+        tests:
+          - not_null
+
+  - name: dim_status_policy
+    description: Status policy for shipment-event types (demo policy)
+    columns:
+      - name: event_type
+        tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: ["COMMIT", "SHIP", "RECEIPT"]
+      - name: event_order
+        tests:
+          - not_null
+
+  - name: fct_order_items
+    description: Fact table at order-item grain (one row per order line item)
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "net_item_sales_amount >= 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "item_discount_amount >= 0"
+    columns:
+      - name: order_item_key
+        tests:
+          - not_null
+          - unique
+      - name: order_date
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: customer_sk
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_sk
+      - name: part_sk
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_part')
+                field: part_sk
+      - name: supplier_sk
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_supplier')
+                field: supplier_sk
+
+  - name: fct_shipment_events
+    description: Fact table at shipment-event grain (commit/ship/receipt), with SLA flags
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "event_date is not null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "days_since_prior_event is null or days_since_prior_event >= 0"
+    columns:
+      - name: shipment_event_key
+        tests:
+          - not_null
+          - unique
+      - name: event_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["COMMIT", "SHIP", "RECEIPT"]
+      - name: event_date
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: customer_sk
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_sk
+      - name: part_sk
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_part')
+                field: part_sk
+      - name: supplier_sk
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_supplier')
+                field: supplier_sk
+

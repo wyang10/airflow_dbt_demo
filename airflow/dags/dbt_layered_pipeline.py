@@ -181,6 +181,15 @@ with DAG(
     if gold_test:
         gold_test.outlets = [Dataset("dbt://gold/fct_orders")]
 
+    # Governance: capture SCD Type 2 snapshots for audit/point-in-time analysis
+    dbt_snapshot = BashOperator(
+        task_id="dbt_snapshot",
+        bash_command=dbt_cmd("dbt snapshot"),
+        env=ENV_VARS,
+        pool="dbt",
+        do_xcom_push=False,
+    )
+
     # 串联：deps -> (seed) -> bronze -> silver -> gold
     chain_head = check_creds >> dbt_deps
     # chain_head = dbt_deps >> dbt_seed  # 若启用 seed，改用此行
@@ -193,4 +202,6 @@ with DAG(
     if silver_test:
         silver_main >> silver_test >> gold_main
     if gold_test:
-        gold_main >> gold_test
+        gold_main >> gold_test >> dbt_snapshot
+    else:
+        gold_main >> dbt_snapshot
