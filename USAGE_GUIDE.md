@@ -1,5 +1,7 @@
 # Airflow + dbt + Snowflake 本地演示（含 Postgres 元数据库）🦊🐱
 
+说明：`README.md` 面向作品集展示（高层概览）；本文档 `USAGE_GUIDE.md` 收纳完整运行与运维细节。
+
 一个稳定、可复现的本地数据编排模板：用 Apache Airflow 调度、dbt 建模、Postgres 作为 Airflow 元数据库、Snowflake 作为数仓。内置一键启动、健康检查、回归验证、数据质量（Great Expectations）与通知（Mailpit）。
 
 核心设计要点
@@ -13,7 +15,10 @@
 前置依赖：Docker Desktop ≥ 4.x、GNU Make、bash、curl
 
 1) 配置凭据（仅本地保存，不入库）
-- 复制并编辑 `airflow/.env`（可参考 `airflow/.env.example`），至少填入 Snowflake：`SNOWFLAKE_ACCOUNT`、`SNOWFLAKE_USER`、`SNOWFLAKE_PASSWORD`、`SNOWFLAKE_ROLE`、`SNOWFLAKE_WAREHOUSE`、`SNOWFLAKE_DATABASE`、`SNOWFLAKE_SCHEMA`。
+- 复制并编辑 `airflow/.env`（可参考 `airflow/.env.example`），至少填入 Snowflake：`SNOWFLAKE_ACCOUNT`、`SNOWFLAKE_USER`、`SNOWFLAKE_ROLE`、`SNOWFLAKE_WAREHOUSE`、`SNOWFLAKE_DATABASE`、`SNOWFLAKE_SCHEMA`。
+- 认证方式（二选一）：
+  - 密码：设置 `SNOWFLAKE_PASSWORD`（默认 `DBT_TARGET=dev`）
+  - Key Pair（当账号强制 MFA 时推荐）：设置 `DBT_TARGET=dev_keypair` + `SNOWFLAKE_PRIVATE_KEY_PATH`（详见 `data_pipeline/profiles.yml`）
 - 示例（占位符示意，勿提交真实密码）：
   ```dotenv
   SNOWFLAKE_ACCOUNT=your_account
@@ -54,7 +59,7 @@
 ├─ airflow/                  # Airflow（DAG、容器依赖、.env）
 │  ├─ dags/
 │  │  ├─ dbt_daily.py
-│  │  ├─ dbt_daily_pipeline.py
+│  │  ├─ dbt_pipeline_dag.py
 │  │  ├─ dbt_layered_pipeline.py
 │  │  ├─ smtp_smoke.py
 │  │  └─ serving/
@@ -96,8 +101,8 @@
 ## 示例 DAG 与运行顺序
 
 - `dbt_layered_pipeline`（推荐阅读）：
-  - `dbt_deps → [bronze.run] → [bronze.test] → [silver.run] → [silver.test] → [gold.run] → [gold.test] → 发布 Dataset dbt://gold/fct_orders`
-- `dbt_daily_pipeline`：单条流水线，使用 TaskGroup 统一运行 + 测试
+  - `dbt_deps → [bronze.run] → [bronze.test] → [silver.run] → [silver.test] → [gold.run] → [gold.test] → 发布 Dataset dbt://gold/fct_orders → dbt snapshot（SCD2/审计）`
+- `dbt_daily_pipeline`：单条流水线，使用 TaskGroup 统一运行 + 测试（定义在 `airflow/dags/dbt_pipeline_dag.py`）
 - `dbt_daily`：最小化 smoke（`dbt_deps → dbt_run → dbt_test`）
 - `dbt_gold_consumer`：订阅 `dbt://gold/fct_orders`，按需运行下游（`tag:downstream`）
 - `quality_checks`：运行 GE 的 `daily_metrics_chk`，成功后更新 Data Docs
@@ -109,9 +114,16 @@ TaskGroup 复用函数位于：`airflow/dags/lib/dbt_groups.py`
 
 - 打开本地 Data Docs：`http://localhost:8081`
 - 质量 DAG：`quality_checks`（自动调用 `UpdateDataDocsAction` 生成/更新文档）
+- `quality_checks` 会先从 Snowflake 导出 `fct_orders` 到容器内：`/opt/airflow/great_expectations/uncommitted/data/fct_orders.csv`，再运行 checkpoint
 - Airflow 任务页内的额外链接会把容器内的 `file://...` 自动改写为主机 `http://localhost:8081/...`
 - 清理历史 GE 结果（仅保留最近 N 份）：
   - `make prune_ge`（默认保留 5 份）或 `make prune_ge PRUNE_KEEP=10`
+
+## 治理与审计（dbt snapshots / SCD Type 2）
+
+- dbt snapshots 定义在：`data_pipeline/snapshots/`
+- `dbt_layered_pipeline` 会在 Gold 测试通过后执行 `dbt snapshot`，用于记录维度/策略表的历史变更（SCD2）
+- 快速查看：在 Snowflake 中会生成到 `<SNOWFLAKE_SCHEMA>`（与 dbt target/schema 一致）
 
 ## 通知与邮件（内置 Mailpit）
 
