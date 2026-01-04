@@ -1,5 +1,5 @@
 # Modern ELT Pipeline with Embedded Data Quality at Scale
-Airflow · dbt · Snowflake · Great Expectations · Docker · CI/CD
+## Airflow · dbt · Snowflake · Great Expectations · Docker · CI/CD
 
 This repo is structured to show:
 - orchestration patterns
