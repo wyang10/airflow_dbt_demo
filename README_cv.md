@@ -1,93 +1,185 @@
-Airflow + dbt + Snowflake Data Orchestration Demo 🦊🐱
+# Airflow + dbt + Snowflake + Docker + CICD Demo (Postgres‑backed) 🦊🐱
 
-A production-ready template for scalable, governed ELT pipelines.
+A production-ready Airflow + dbt + Snowflake data orchestration demo for rapid onboarding and reproducible pipelines.
 
-🚀 Overview
+Highlights
+- Built reusable TaskGroups wrapping dbt run/test with backfill vars `{start_date,end_date}` to reduce boilerplate.
+- Designed a layered ELT pipeline (Bronze → Silver → Gold) with tests as quality gates between layers.
+- Serialized dbt CLI runs via Airflow Pool `dbt` to prevent `target/` and `dbt_packages/` race conditions.
+- Published dataset `dbt://gold/fct_orders` for downstream Datasets-based orchestration.
+- Integrated Great Expectations as automated data quality validation.
 
-This project combines Apache Airflow (scheduling), dbt (transformation), and Great Expectations (data validation) into a single reproducible stack.
-It demonstrates how to build a maintainable, high-quality ELT pipeline from ingestion to consumption, ready for both learning and production onboarding.
+A stable, reproducible local data orchestration template: Apache Airflow for scheduling, dbt for modeling, Postgres as the Airflow metadata DB, and Snowflake as the warehouse. Comes with one‑command startup, health checks, regression validation, Great Expectations data quality, and Mailpit for notifications.
 
-⸻
-
-✨ Highlights
-
-	•	Layered ELT Pipeline — Bronze → Silver → Gold modeling with dbt tests as automatic quality gates.
-	•	Reusable Airflow TaskGroups wrapping dbt run/test commands to cut DAG boilerplate by >60%.
-	•	Stability First: Airflow Pool dbt (serialized execution) prevents file race conditions in target/.
-	•	Data Quality Automation: Great Expectations runs after each layer to validate schema & values.
-	•	Event-Driven Scheduling: Publishes dataset dbt://gold/fct_orders for downstream subscriptions.
-	•	Fast CI/CD: Fail-Fast Lint + cached dbt compile = feedback loop < 2 min.
-
-⸻
-
-Airflow DAGs 
-![Airflow Dags](tests/picture/airflow.png)
-
-Great Expectations Docs
-![GE Docs](tests/picture/ge.png)
- 
-CI/CD Overview
-![CI/CD](tests/picture/cicd.png)
-
-  
-⸻
-
-🧱 Stack
-
-Component	Version / Role
-
-- Airflow 2.9.3	Orchestration (Local Executor + Postgres metadata)
-- dbt-core 1.10 + dbt-snowflake 1.10	SQL modeling & transformation
-- Great Expectations 0.18	Data validation & docs
-- Mailpit + Nginx	Local email testing & GE docs hosting
-- Docker + Makefile	Reproducible startup & task automation
+![Airflow Dags](tests/demo/airflow.png)
+![Mailpit + Doc](tests/demo/ge.png)
+![Docker + CICD](tests/demo/cicd.png)
 
 
-⸻
+## Quick Start
 
-🧭 Architecture
+Prerequisites: Docker Desktop ≥ 4.x, GNU Make, bash, curl
 
-flowchart LR
+1) Credentials (local only, not committed)
+- Copy `airflow/.env.example` to `airflow/.env` and fill Snowflake vars: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA`.
+- Optional: `ALERT_EMAIL` for failure notifications.
 
-  A[Extract Bronze] --> B[Transform Silver]
-  
-  B --> C[Aggregate Gold]
-  
-  C --> D[Publish Dataset: dbt://gold/fct_orders]
-  
-  D --> E[Downstream Consumers]
-  
-  C --> F[Great Expectations Validation]
+2) Start (pick one)
+- `make up`                 # init + start, opens the UI
+- `./launch.sh --init`      # one‑time init + start
+- `make rebuild` or `./launch.sh --rebuild`  # rebuild images then start
+- `make fresh`              # start clean, delete volumes (dangerous)
+- Open `http://localhost:8080` (user/pass: `airflow / airflow`)
 
+3) Validate
+- Trigger and wait for sample DAGs to succeed: `make validate`
+- Or a subset: `make validate-daily` / `make validate-pipelines`
 
-⸻
+4) Clear historical failures (red dots in UI)
+- Keep run records, clear failed task instances: `make clear-failed`
+- Delete failed runs (destructive): `make clear-failed-hard`
 
-⚙️ Quick Start
+Or Simply Start:
 ```
-# Clone & start
-git clone https://github.com/wyang10/airflow_dbt_demo.git
-cd airflow_dbt_demo
-make up      # start containers and open Airflow UI
-make validate # trigger sample DAGs
+./launch.sh --fresh --no-open && make validate
+```
+Tested on macOS 14 / Ubuntu 22.04 environments.
+
+## Project Layout / Repository Map
 
 ```
+./
+├─ airflow/                  # Airflow (DAGs, container deps, .env)
+│  ├─ dags/
+│  │  ├─ dbt_daily.py
+│  │  ├─ dbt_pipeline_dag.py          # DAG id: dbt_daily_pipeline
+│  │  ├─ dbt_layered_pipeline.py
+│  │  ├─ smtp_smoke.py
+│  │  └─ serving/
+│  │     ├─ quality_checks.py
+│  │     └─ dbt_gold_consumer.py
+│  │  └─ lib/
+│  │     ├─ dbt_groups.py              # reusable TaskGroups for dbt run/test
+│  │     └─ creds.py                   # Snowflake creds short-circuit
+│  ├─ Dockerfile                       # Airflow image (installs dbt + GE provider)
+│  ├─ requirements.txt       # dbt + GE provider installed in the image
+│  └─ .env                   # Snowflake + optional alert email (gitignored)
+├─ data_pipeline/            # dbt project
+│  ├─ dbt_project.yml
+│  ├─ profiles.yml           # reads Snowflake creds from env vars
+│  ├─ packages.yml           # dbt_utils dependency
+│  ├─ models/
+│  │  ├─ bronze/
+│  │  ├─ silver/
+│  │  └─ gold/
+│  ├─ snapshots/             # SCD2 / audit history
+│  └─ snippets/              # copy‑ready templates (sources/tests)
+├─ great_expectations/       # GE config, validations, local Data Docs
+├─ scripts/                  # validation, cleanup, QA helpers
+├─ docker-compose.yml        # Postgres + Airflow + Mailpit + Nginx(GE docs)
+├─ Makefile                  # handy commands (make help)
+├─ init_env.sh               # local dbt env bootstrapper
+├─ launch.sh                 # one-command runner (wraps docker compose)
+└─ README.md
+```
 
-Runs locally on Docker Desktop ≥ 4.x (macOS 14 / Ubuntu 22.04 tested)
+## Stack & Versions
 
- ![Detailed Install & running Instruction Doc](README_Details.md)
+- Airflow 2.9.3 (image built from `apache/airflow:2.9.3-python3.11`)
+  - Executor: LocalExecutor
+  - Metadata DB: Postgres 15
+  - Healthcheck: `airflow db check`
+- dbt-core 1.10 + dbt-snowflake 1.10 (installed in container)
+- Great Expectations 0.18 + Airflow provider
+- Mailpit (local SMTP sink, UI: `http://localhost:8025`)
+- Nginx serves GE Data Docs: `http://localhost:8081`
 
-⸻
+Mounts
+- `./airflow/dags -> /opt/airflow/dags`
+- `./data_pipeline -> /opt/airflow/dbt`
+- `./great_expectations -> /opt/airflow/great_expectations`
 
-💡 Why This Repo
+## DAGs & Run Order
 
-A clean reference for:
+- `dbt_layered_pipeline` (flagship):
+  - `dbt_deps → Bronze(run/test) → Silver(run/test) → Gold(run/test) → publish Dataset dbt://gold/fct_orders → dbt_snapshot`
+- `dbt_daily_pipeline`: single‑line pipeline using TaskGroups (`airflow/dags/dbt_pipeline_dag.py`)
+- `dbt_daily`: minimal smoke (`dbt_deps → dbt_run → dbt_test`)
+- `dbt_gold_consumer`: subscribes to `dbt://gold/fct_orders` and runs downstream (`tag:downstream`)
+- `quality_checks`: runs GE checkpoint `daily_metrics_chk`, updates Data Docs
+- `smtp_smoke`: SMTP smoke test (requires `ALERT_EMAIL`)
 
-	•	🎓 Data engineers learning end-to-end ELT orchestration
-	•	🧩 Teams building internal Airflow + dbt templates
-	•	💼 Portfolio projects to show production-grade design thinking
+## Mermaid — Layered pipeline order
+![](tests/demo/architecture.png)
 
-⸻
+TaskGroup helpers live in `airflow/dags/lib/dbt_groups.py`.
 
-🪪 License
+## Great Expectations (Data Quality)
 
-MIT License · Use freely for learning and personal projects
+- Local Data Docs: `http://localhost:8081`
+- DAG: `quality_checks` runs `daily_metrics_chk` and calls `UpdateDataDocsAction`
+- Airflow task extra link rewrites container `file://...` to host `http://localhost:8081/...`
+- Prune historical GE outputs (keep last N):
+  - `make prune_ge` (default keep 5) or `make prune_ge PRUNE_KEEP=10`
+
+## Notifications & Email (Mailpit by default)
+
+- Dev default: Mailpit UI at `http://localhost:8025`, SMTP `mailpit:1025` (no auth/TLS)
+- Switch to real SMTP (example: Gmail)
+  - Airflow UI → Admin → Connections → +
+    - Conn Id: `smtp_gmail`, Type: `smtp`, Host: `smtp.gmail.com`, Port: `587`
+    - Login: your address; Password: App Password
+    - Extra: `{ "starttls": true }`
+  - Or via CLI and then update `smtp_smoke` to use your `conn_id`:
+
+```
+docker compose exec -T webserver \
+  airflow connections add smtp_gmail \
+  --conn-type smtp --conn-host smtp.gmail.com --conn-port 587 \
+  --conn-login YOU@gmail.com --conn-password 'APP_PASSWORD' \
+  --conn-extra '{"starttls": true}'
+```
+
+## Local dbt Dev (optional)
+
+- `make env` creates a local venv for dbt, loads `airflow/.env`, and runs a quick check
+- Useful targets:
+  - `make dbt-debug` / `make dbt-parse` / `make dbt-ls`
+  - `make dbt-run-bronze` / `make dbt-run-silver` / `make dbt-run-gold`
+  - `make dbt-build` (full build + tests)
+  - `make dbt-docs` (generate + serve docs locally)
+
+## Common Ops
+
+- `make help`     list available commands
+- `make ps`       container status
+- `make logs`     follow webserver + scheduler logs
+- `make health`   web/scheduler health check
+- `make down`     stop containers (keep volumes)
+- `make destroy`  stop and delete volumes (dangerous)
+
+## Stability Conventions
+
+- All dbt tasks use Pool `dbt` (size 1) to serialize CLI runs
+- DAGs use `max_active_runs=1` and 1 retry by default
+- Keep deps consistent with `dbt deps`; do not delete `target/` or `dbt_packages/` in tasks
+
+## Troubleshooting
+
+- Web health: `curl -fsS http://localhost:8080/health`; restart Docker and `make up`
+- No Snowflake creds: dbt tasks are ShortCircuited to avoid noisy failures
+- Red dots in UI: `make clear-failed` or `make clear-failed-hard`
+- GE provider missing: installed via `airflow/requirements.txt`
+- dbt not found: container PATH includes `~/.local/bin`; for local dev run `make env`
+
+## Security
+
+- `airflow/.env` is gitignored — do not commit real credentials
+- For production, bake dependencies into images and use a Secret Manager (Vault/KMS/Secrets Manager)
+
+## License
+
+MIT — see `LICENSE` at the repo root.
+
+
+More details: `README.md` (overview) and `USAGE_GUIDE.md` (ops).
