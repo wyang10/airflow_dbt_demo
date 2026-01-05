@@ -1,7 +1,7 @@
 # Modern ELT Pipeline with Embedded Data Quality at Scale
 ## Airflow · dbt · Snowflake · Great Expectations · Docker · CI/CD
 
-This repo is structured to show:
+This repo is intended for data engineers who want a production-like ELT template with orchestration, modeling, and quality gates. It is structured to show:
 - orchestration patterns
 - modeling patterns
 - quality gates
@@ -106,13 +106,36 @@ Key Gold models:
   - `data_pipeline/models/gold/fct_orders.sql` (published as Airflow Dataset `dbt://gold/fct_orders`)
 - Policies (demo governance targets): `data_pipeline/models/gold/dim_sla_policy.sql`, `data_pipeline/models/gold/dim_status_policy.sql`
 
+
 ## Quickstart
 
-```bash
-cp airflow/.env.example airflow/.env
-make up
-make validate
+Prerequisites: Docker Desktop ≥ 4.x, GNU Make, bash, curl
+
+1) Credentials (local only, not committed)
+- Copy `airflow/.env.example` to `airflow/.env` and fill Snowflake vars: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA`.
+- Optional: `ALERT_EMAIL` for failure notifications.
+
+2) Start (pick one)
+- `make up`                 # init + start, opens the UI
+- `./launch.sh --init`      # one‑time init + start
+- `make rebuild` or `./launch.sh --rebuild`  # rebuild images then start
+- `make fresh`              # start clean, delete volumes (dangerous)
+- Open `http://localhost:8080` (user/pass: `airflow / airflow`)
+
+3) Validate
+- Trigger and wait for sample DAGs to succeed: `make validate`
+- Or a subset: `make validate-daily` / `make validate-pipelines`
+
+4) Clear historical failures (red dots in UI)
+- Keep run records, clear failed task instances: `make clear-failed`
+- Delete failed runs (destructive): `make clear-failed-hard`
+
+Or Simply Start:
 ```
+./launch.sh --fresh --no-open && make validate
+```
+Tested on macOS 14 / Ubuntu 22.04 environments.
+
 
 Useful local UIs:
 - Airflow: `http://localhost:8080`
