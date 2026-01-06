@@ -1,25 +1,31 @@
-# Airflow + dbt + Snowflake 本地演示（含 Postgres 元数据库）🦊🐱
+# Local Airflow + dbt + Snowflake Demo (Postgres Metadata DB)
 
-说明：`README.md` 面向作品集展示（高层概览）；本文档 `USAGE_GUIDE.md` 收纳完整运行与运维细节。
+Note: `README.md` is for portfolio-style overview; this `USAGE_GUIDE.md` contains full runbook and operational details.
 
-一个稳定、可复现的本地数据编排模板：用 Apache Airflow 调度、dbt 建模、Postgres 作为 Airflow 元数据库、Snowflake 作为数仓。内置一键启动、健康检查、回归验证、数据质量（Great Expectations）与通知（Mailpit）。
+This is a stable, reproducible local data-orchestration template:
+- Apache Airflow for scheduling
+- dbt for modeling
+- Postgres as the Airflow metadata DB
+- Snowflake as the warehouse
+- Built-in one-command startup, health checks, regression validation, data quality (Great Expectations), and notifications (Mailpit)
 
-核心设计要点
-- TaskGroup 封装 dbt run/test，统一传入补数变量 `{start_date,end_date}`，减少样板代码
-- 分层流水线（Bronze → Silver → Gold）层间以测试作为质量闸口
-- 使用 Airflow Pool `dbt` 串行化 dbt CLI，避免 `target/`、`dbt_packages/` 的并发冲突
-- Gold 完成后发布 Dataset：`dbt://gold/fct_orders`，可被下游 DAG 订阅
+Key design points
+- Wrap `dbt run/test` in TaskGroups and consistently pass backfill vars `{start_date,end_date}` to reduce boilerplate
+- Layered pipeline (Bronze → Silver → Gold) with tests as quality gates between layers
+- Serialize dbt CLI via Airflow Pool `dbt` to prevent concurrency conflicts in `target/` and `dbt_packages/`
+- Publish Dataset after Gold: `dbt://gold/fct_orders`, which downstream DAGs can subscribe to
 
-## 快速开始
+## Quickstart
 
-前置依赖：Docker Desktop ≥ 4.x、GNU Make、bash、curl
+Prereqs: Docker Desktop ≥ 4.x, GNU Make, bash, curl
 
-1) 配置凭据（仅本地保存，不入库）
-- 复制并编辑 `airflow/.env`（可参考 `airflow/.env.example`），至少填入 Snowflake：`SNOWFLAKE_ACCOUNT`、`SNOWFLAKE_USER`、`SNOWFLAKE_ROLE`、`SNOWFLAKE_WAREHOUSE`、`SNOWFLAKE_DATABASE`、`SNOWFLAKE_SCHEMA`。
-- 认证方式（二选一）：
-  - 密码：设置 `SNOWFLAKE_PASSWORD`（默认 `DBT_TARGET=dev`）
-  - Key Pair（当账号强制 MFA 时推荐）：设置 `DBT_TARGET=dev_keypair` + `SNOWFLAKE_PRIVATE_KEY_PATH`（详见 `data_pipeline/profiles.yml`）
-- 示例（占位符示意，勿提交真实密码）：
+1) Configure credentials (local only, never committed)
+- Copy and edit `airflow/.env` (use `airflow/.env.example` as a template). At minimum fill Snowflake vars:
+  - `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA`
+- Pick one auth mode:
+  - Password: set `SNOWFLAKE_PASSWORD` (default `DBT_TARGET=dev`)
+  - Key Pair (recommended when MFA is enforced): set `DBT_TARGET=dev_keypair` + `SNOWFLAKE_PRIVATE_KEY_PATH` (see `data_pipeline/profiles.yml`)
+- Example (placeholders only; do not commit real secrets):
   ```dotenv
   SNOWFLAKE_ACCOUNT=your_account
   SNOWFLAKE_USER=your_user
@@ -28,35 +34,35 @@
   SNOWFLAKE_WAREHOUSE=DBT_WH
   SNOWFLAKE_DATABASE=DBT_DB
   SNOWFLAKE_SCHEMA=DBT_SCHEMA
-  # 可选：任务失败告警收件人
+  # Optional: email recipient for failure alerts
   ALERT_EMAIL=you@example.com
   ```
 
-2) 启动（任选其一）
-- `make up`               # 初始化并启动，自动打开 UI
-- `./launch.sh --init`    # 一次性初始化 + 启动
-- `make rebuild` / `./launch.sh --rebuild`  # 重新构建镜像后启动
-- `make fresh`            # 清理卷后启动（危险）
-- 打开 `http://localhost:8080`（用户名/密码：`airflow / airflow`）
+2) Start (choose one)
+- `make up`               # init + start, auto-opens UI
+- `./launch.sh --init`    # one-time init + start
+- `make rebuild` / `./launch.sh --rebuild`  # rebuild images then start
+- `make fresh`            # start clean, delete volumes (dangerous)
+- Open `http://localhost:8080` (user/pass: `airflow / airflow`)
 
-3) 验证
-- 触发并等待全部示例 DAG 成功：`make validate`
-- 或仅验证子集：`make validate-daily` / `make validate-pipelines`
+3) Validate
+- Trigger and wait for all sample DAGs to succeed: `make validate`
+- Or validate a subset: `make validate-daily` / `make validate-pipelines`
 
-4) 清理历史失败（UI 红点）
-- 保留运行记录，仅清失败任务实例：`make clear-failed`
-- 直接删除失败的 DAG Run：`make clear-failed-hard`
+4) Clear historical failures (red dots in UI)
+- Keep run records, clear failed task instances: `make clear-failed`
+- Delete failed DAG runs (destructive): `make clear-failed-hard`
 
-或快捷指令：
+Shortcut:
 ```
 ./launch.sh --fresh --no-open && make validate
 ```
 
-## 目录结构
+## Directory Layout
 
 ```
 ./
-├─ airflow/                  # Airflow（DAG、容器依赖、.env）
+├─ airflow/                  # Airflow (DAGs, image deps, .env)
 │  ├─ dags/
 │  │  ├─ dbt_daily.py
 │  │  ├─ dbt_pipeline_dag.py
@@ -65,79 +71,82 @@
 │  │  └─ serving/
 │  │     ├─ quality_checks.py
 │  │     └─ dbt_gold_consumer.py
-│  ├─ requirements.txt       # 容器内安装：dbt、GE provider 等
-│  └─ .env                   # Snowflake & 可选告警邮箱（已 gitignore）
-├─ data_pipeline/            # dbt 项目根目录
+│  ├─ Dockerfile             # image build (installs dbt + GE provider)
+│  ├─ requirements.txt       # dbt, GE provider, etc. installed into image
+│  └─ .env                   # Snowflake + optional alert email (gitignored)
+├─ data_pipeline/            # dbt project root
 │  ├─ dbt_project.yml
-│  ├─ profiles.yml           # 从环境变量读取 Snowflake 凭据
+│  ├─ profiles.yml           # reads Snowflake creds from env vars
+│  ├─ packages.yml           # dbt_utils dependency
 │  ├─ models/
 │  │  ├─ bronze/
 │  │  ├─ silver/
 │  │  └─ gold/
-│  └─ snippets/              # 可复用模板（sources/tests）
-├─ great_expectations/       # GE 配置、校验结果与本地 Data Docs
-├─ scripts/                  # 验证、清理、QA、小工具
+│  ├─ snapshots/             # SCD2 / audit history
+│  └─ snippets/              # reusable templates (sources/tests)
+├─ great_expectations/       # GE config, validations, local Data Docs
+├─ scripts/                  # validation, cleanup, QA helpers
 ├─ docker-compose.yml        # Postgres + Airflow + Mailpit + Nginx(GE docs)
-├─ Makefile                  # 常用命令（make help）
+├─ Makefile                  # handy commands (make help)
 └─ README.md
 ```
 
-## 组件与版本
+## Components & Versions
 
-- Airflow 2.9.3（镜像：`apache/airflow:2.9.3-python3.11`）
-  - 执行器：LocalExecutor
-  - 元数据库：Postgres 15
-  - 健康检查：`airflow db check`
-- dbt-core 1.10 + dbt-snowflake 1.10（容器内安装）
-- Great Expectations 0.18 + Provider（质量检查与 Data Docs）
-- Mailpit（本地 SMTP 收件箱，UI: `http://localhost:8025`）
-- Nginx 暴露 GE Data Docs（`http://localhost:8081`）
+- Airflow 2.9.3 (image built from `apache/airflow:2.9.3-python3.11`)
+  - Executor: LocalExecutor
+  - Metadata DB: Postgres 15
+  - Healthcheck: `airflow db check`
+- dbt-core 1.10 + dbt-snowflake 1.10 (installed in the image)
+- Great Expectations 0.18 + provider (DQ gate + Data Docs)
+- Mailpit (local SMTP sink, UI: `http://localhost:8025`)
+- Nginx serves GE Data Docs (`http://localhost:8081`)
 
-挂载与路径
+Mounts & paths
 - `./airflow/dags -> /opt/airflow/dags`
 - `./data_pipeline -> /opt/airflow/dbt`
 - `./great_expectations -> /opt/airflow/great_expectations`
 
-## 示例 DAG 与运行顺序
+## Sample DAGs & Run Order
 
-- `dbt_layered_pipeline`（推荐阅读）：
-  - `dbt_deps → [bronze.run] → [bronze.test] → [silver.run] → [silver.test] → [gold.run] → [gold.test] → 发布 Dataset dbt://gold/fct_orders → dbt snapshot（SCD2/审计）`
-- `dbt_daily_pipeline`：单条流水线，使用 TaskGroup 统一运行 + 测试（定义在 `airflow/dags/dbt_pipeline_dag.py`）
-- `dbt_daily`：最小化 smoke（`dbt_deps → dbt_run → dbt_test`）
-- `dbt_gold_consumer`：订阅 `dbt://gold/fct_orders`，按需运行下游（`tag:downstream`）
-- `quality_checks`：运行 GE 的 `daily_metrics_chk`，成功后更新 Data Docs
-- `smtp_smoke`：SMTP 冒烟（需设置 `ALERT_EMAIL` 才会发送）
+- `dbt_layered_pipeline` (recommended read):
+  - `dbt_deps → [bronze.run] → [bronze.test] → [silver.run] → [silver.test] → [gold.run] → [gold.test] → publish Dataset dbt://gold/fct_orders → dbt snapshot (SCD2/audit)`
+- `dbt_daily_pipeline`: single-line pipeline using TaskGroups (defined in `airflow/dags/dbt_pipeline_dag.py`)
+- `dbt_daily`: minimal smoke (`dbt_deps → dbt_run → dbt_test`)
+- `dbt_gold_consumer`: subscribes to `dbt://gold/fct_orders` and runs downstream models (`tag:downstream`)
+- `quality_checks`: runs GE checkpoint `daily_metrics_chk` and updates Data Docs
+- `smtp_smoke`: SMTP smoke test (requires `ALERT_EMAIL` to actually send)
 
-TaskGroup 复用函数位于：`airflow/dags/lib/dbt_groups.py`
+TaskGroup helpers: `airflow/dags/lib/dbt_groups.py`
 
-## Great Expectations（数据质量）
+## Great Expectations (Data Quality)
 
-- 打开本地 Data Docs：`http://localhost:8081`
-- 质量 DAG：`quality_checks`（自动调用 `UpdateDataDocsAction` 生成/更新文档）
-- `quality_checks` 会先从 Snowflake 导出 `fct_orders` 到容器内：`/opt/airflow/great_expectations/uncommitted/data/fct_orders.csv`，再运行 checkpoint
-- Airflow 任务页内的额外链接会把容器内的 `file://...` 自动改写为主机 `http://localhost:8081/...`
-- 清理历史 GE 结果（仅保留最近 N 份）：
-  - `make prune_ge`（默认保留 5 份）或 `make prune_ge PRUNE_KEEP=10`
+- Local Data Docs: `http://localhost:8081`
+- DAG: `quality_checks` (runs `UpdateDataDocsAction` to generate/update docs)
+- `quality_checks` exports `fct_orders` to: `/opt/airflow/great_expectations/uncommitted/data/fct_orders.csv`, then runs the checkpoint
+- Airflow task extra link rewrites container `file://...` URLs to host `http://localhost:8081/...`
+- Prune historical GE outputs (keep last N):
+  - `make prune_ge` (default keep 5) or `make prune_ge PRUNE_KEEP=10`
 
-## 治理与审计（dbt snapshots / SCD Type 2）
+## Governance & Audit (dbt snapshots / SCD Type 2)
 
-- dbt snapshots 定义在：`data_pipeline/snapshots/`
-- `dbt_layered_pipeline` 会在 Gold 测试通过后执行 `dbt snapshot`，用于记录维度/策略表的历史变更（SCD2）
-- 快速查看：在 Snowflake 中会生成到 `<SNOWFLAKE_SCHEMA>`（与 dbt target/schema 一致）
+- Snapshots live in: `data_pipeline/snapshots/`
+- `dbt_layered_pipeline` runs `dbt snapshot` after Gold tests pass, to record historical changes for dims/policies (SCD2)
+- Where to find them in Snowflake: under `<SNOWFLAKE_SCHEMA>` (same as the dbt target/schema)
 
-## 通知与邮件（内置 Mailpit）
+## Notifications & Email (Mailpit included)
 
-- 开发默认使用 Mailpit：
-  - Web UI：`http://localhost:8025`
-  - SMTP：`mailpit:1025`（无认证、无 TLS）
-- 切换真实 SMTP（示例：Gmail）
-  - 在 Airflow UI 创建连接（Admin → Connections → +）：
-    - Conn Id: `smtp_gmail`，Type: `smtp`，Host: `smtp.gmail.com`，Port: `587`
-    - Login: 你的邮箱；Password: App Password
+- Dev default uses Mailpit:
+  - Web UI: `http://localhost:8025`
+  - SMTP: `mailpit:1025` (no auth, no TLS)
+- Switch to a real SMTP (example: Gmail)
+  - Create a connection in Airflow UI (Admin → Connections → +):
+    - Conn Id: `smtp_gmail`, Type: `smtp`, Host: `smtp.gmail.com`, Port: `587`
+    - Login: your email; Password: App Password
     - Extra: `{ "starttls": true }`
-  - 或使用 CLI 添加连接（参考下方命令），并把 `smtp_smoke` 的 `conn_id` 改为新建连接
+  - Or add via CLI and update `smtp_smoke` to use your `conn_id`:
 
-CLI 示例（创建 Gmail SMTP 连接）：
+CLI example (create Gmail SMTP connection):
 ```
 docker compose exec -T webserver \
   airflow connections add smtp_gmail \
@@ -146,43 +155,43 @@ docker compose exec -T webserver \
   --conn-extra '{"starttls": true}'
 ```
 
-## 本地 dbt 调试（可选）
+## Local dbt Debugging (Optional)
 
-- 一键准备本地 venv、加载 `airflow/.env` 并自检：`make env`
-- 常用命令：
+- One command to set up local venv, load `airflow/.env`, and run a quick check: `make env`
+- Useful targets:
   - `make dbt-debug` / `make dbt-parse` / `make dbt-ls`
   - `make dbt-run-bronze` / `make dbt-run-silver` / `make dbt-run-gold`
-  - `make dbt-build`（全量构建 + 测试）
-  - `make dbt-docs`（生成 + 本地预览 dbt 文档）
+  - `make dbt-build` (full build + tests)
+  - `make dbt-docs` (generate + serve dbt docs locally)
 
-## 常用运维命令
+## Common Ops Commands
 
-- `make help`           查看所有可用命令
-- `make ps`             查看容器状态
-- `make logs`           跟随 webserver + scheduler 日志
-- `make health`         健康检查（Web/Scheduler）
-- `make down`           停止容器（保留卷）
-- `make destroy`        停止并删除卷（危险）
+- `make help`           list available commands
+- `make ps`             container status
+- `make logs`           follow webserver + scheduler logs
+- `make health`         health check (Web/Scheduler)
+- `make down`           stop containers (keep volumes)
+- `make destroy`        stop and delete volumes (dangerous)
 
-## 稳定性约定
+## Stability Conventions
 
-- 所有 dbt 任务使用 Pool `dbt`（大小 1）以串行运行 CLI
-- DAG 设置 `max_active_runs=1`、默认 1 次重试，减少偶发波动
-- 仅运行 `dbt deps` 保持依赖一致，不在任务内清空 `target/` 或 `dbt_packages/`
+- All dbt tasks use Pool `dbt` (size 1) to serialize CLI execution
+- DAGs set `max_active_runs=1` and default to 1 retry to reduce flakiness
+- Keep deps consistent with `dbt deps`; do not delete `target/` or `dbt_packages/` inside tasks
 
-## 故障排查（FAQ）
+## Troubleshooting (FAQ)
 
-- Web 健康检查失败：`curl -fsS http://localhost:8080/health`；重启 Docker 后 `make up`
-- 未配置 Snowflake 凭据时，dbt 任务会被 ShortCircuit 跳过（避免长时间失败）
-- Airflow UI 红点（历史失败）：`make clear-failed` 或 `make clear-failed-hard`
-- GE Provider 未安装导致 `quality_checks` 无任务：容器会自动安装 `airflow-provider-great-expectations`（见 `airflow/requirements.txt`）
-- dbt CLI 未找到：容器内 PATH 已包含 `~/.local/bin`；本地调试请先 `make env`
+- Web health fails: `curl -fsS http://localhost:8080/health`; restart Docker, then `make up`
+- If Snowflake creds are not configured, dbt tasks are ShortCircuited to avoid noisy failures
+- Red dots in UI (historical failures): `make clear-failed` or `make clear-failed-hard`
+- If `quality_checks` shows no tasks because GE provider is missing: it is installed via `airflow/requirements.txt`
+- If dbt CLI is not found: container PATH includes `~/.local/bin`; for local dev, run `make env` first
 
-## 安全与机密
+## Security & Secrets
 
-- `airflow/.env` 已被 `.gitignore` 忽略，请勿提交真实凭据
-- 生产环境推荐将依赖烘焙进镜像，并使用 Secret Manager（Vault/KMS/Secrets Manager）
+- `airflow/.env` is gitignored — do not commit real credentials
+- For production, bake dependencies into images and use a Secret Manager (Vault/KMS/Secrets Manager)
 
-## 许可证
+## License
 
-本项目使用 MIT License，详见根目录 `LICENSE`。
+MIT License — see `LICENSE` at the repo root.
